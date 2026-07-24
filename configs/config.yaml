@@ -1,0 +1,9 @@
+data:
+  raw_url: "https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-min-temperatures.csv"
+  raw_path: "data/raw/daily-min-temperatures.csv"
+  processed_path: "data/processed/features.csv"
+paths:
+  model_dir: "models"
+  model_path: "models/model.pkl"
+logging:
+  level: "INFO"
