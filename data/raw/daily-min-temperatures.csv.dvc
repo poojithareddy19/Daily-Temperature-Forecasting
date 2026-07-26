@@ -1,0 +1,5 @@
+outs:
+- md5: e35310138d13ed2b8117e3a4faa770c5
+  size: 60619
+  hash: md5
+  path: daily-min-temperatures.csv
