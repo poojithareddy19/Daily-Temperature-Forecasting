@@ -1,7 +1,8 @@
-
 import json
 
 import joblib
+import mlflow
+import mlflow.sklearn
 import pandas as pd
 import yaml
 from sklearn.ensemble import RandomForestRegressor
@@ -45,33 +46,42 @@ def main() -> dict:
         n_jobs=-1,
     )
 
-    model.fit(
-        train_df[features],
-        train_df[TARGET],
-    )
+    mlflow.set_experiment("temperature-forecast")
 
-    preds = model.predict(test_df[features])
+    with mlflow.start_run():
+        mlflow.log_params(params["train"])
 
-    metrics = {
-        "rmse": rmse(test_df[TARGET], preds),
-        "mae": mae(test_df[TARGET], preds),
-    }
+        model.fit(
+            train_df[features],
+            train_df[TARGET],
+        )
 
-    model_path = PROJECT_ROOT / cfg["paths"]["model_path"]
-    model_path.parent.mkdir(parents=True, exist_ok=True)
+        preds = model.predict(test_df[features])
 
-    joblib.dump(
-        {
-            "model": model,
-            "features": features,
-        },
-        model_path,
-    )
+        metrics = {
+            "rmse": rmse(test_df[TARGET], preds),
+            "mae": mae(test_df[TARGET], preds),
+        }
 
-    with open(PROJECT_ROOT / "metrics.json", "w") as f:
-        json.dump(metrics, f, indent=2)
+        mlflow.log_metrics(metrics)
 
-    logger.info("Training done. Metrics: %s", metrics)
+        mlflow.sklearn.log_model(model, "model")
+
+        model_path = PROJECT_ROOT / cfg["paths"]["model_path"]
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+
+        joblib.dump(
+            {
+                "model": model,
+                "features": features,
+            },
+            model_path,
+        )
+
+        with open(PROJECT_ROOT / "metrics.json", "w") as f:
+            json.dump(metrics, f, indent=2)
+
+        logger.info("Training done. Metrics: %s", metrics)
 
     return metrics
 

@@ -1,0 +1,6 @@
+artifact_location: file:///C:/Users/gorla/GitHub%20Projects/Production-Grade-MLOps/mlruns/248428399006375089
+creation_time: 1789565472365
+experiment_id: '248428399006375089'
+last_update_time: 1789565472365
+lifecycle_stage: active
+name: temperature-forecast
