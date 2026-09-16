@@ -1,0 +1,21 @@
+stages:
+  prepare:
+    cmd: python -m src.features.build_features
+    deps:
+      - src/features/build_features.py
+      - data/raw/daily-min-temperatures.csv
+      - params.yaml
+    outs:
+      - data/processed/features.csv
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - src/models/train.py
+      - data/processed/features.csv
+      - params.yaml
+    outs:
+      - models/model.pkl
+    metrics:
+      - metrics.json:
+          cache: false
