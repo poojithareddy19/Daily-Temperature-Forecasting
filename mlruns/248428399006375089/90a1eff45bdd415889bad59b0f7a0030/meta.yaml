@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/gorla/GitHub%20Projects/Production-Grade-MLOps/mlruns/248428399006375089/90a1eff45bdd415889bad59b0f7a0030/artifacts
+end_time: 1789566442925
+entry_point_name: ''
+experiment_id: '248428399006375089'
+lifecycle_stage: active
+run_id: 90a1eff45bdd415889bad59b0f7a0030
+run_name: efficient-cub-757
+run_uuid: 90a1eff45bdd415889bad59b0f7a0030
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1789566433112
+status: 3
+tags: []
+user_id: gorla
