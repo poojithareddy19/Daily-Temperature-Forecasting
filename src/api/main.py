@@ -37,7 +37,14 @@ def health():
 
 def _serving_features(req: PredictionRequest) -> list:
     t = req.recent_temps
-    d = datetime.strptime(req.date, "%Y-%m-%d")
+
+    try:
+        d = datetime.strptime(req.date, "%Y-%m-%d")
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="date must be YYYY-MM-DD",
+        ) from exc
 
     feat = {
         "month": d.month,
@@ -58,8 +65,24 @@ def _serving_features(req: PredictionRequest) -> list:
 @app.post("/predict", response_model=PredictionResponse)
 def predict(req: PredictionRequest):
     if _bundle is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded",
+        )
 
-    value = float(_bundle["model"].predict([_serving_features(req)])[0])
+    value = float(
+        _bundle["model"].predict(
+            [_serving_features(req)]
+        )[0]
+    )
 
-    return PredictionResponse(date=req.date,prediction=round(value, 2))
+    logger.info(
+        "Predicted %.2f for date=%s",
+        value,
+        req.date,
+    )
+
+    return PredictionResponse(
+        date=req.date,
+        prediction=round(value, 2),
+    )
