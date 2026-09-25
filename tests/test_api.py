@@ -79,3 +79,10 @@ def test_metrics_endpoint_reports_predictions(monkeypatch):
     assert r.status_code == 200
     assert "predictions_total" in r.text
     assert "prediction_latency_seconds_bucket" in r.text
+
+
+def test_root_redirects_to_docs():
+    client = TestClient(main.app)
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 307
+    assert r.headers["location"] == "/docs"
