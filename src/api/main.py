@@ -2,6 +2,7 @@ from datetime import datetime
 
 import joblib
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
@@ -34,6 +35,12 @@ def _load_model():
         logger.info("Loaded model from %s", path)
     else:
         logger.warning("No model at %s; /predict returns 503", path)
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Send visitors of the bare URL to the interactive docs."""
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
