@@ -79,6 +79,7 @@ def main() -> dict:
 
         with open(PROJECT_ROOT / "metrics.json", "w") as f:
             json.dump(metrics, f, indent=2)
+            f.write("\n")  # keep pre-commit's end-of-file hook and DVC's hash in agreement
 
         logger.info("Training done. Metrics: %s", metrics)
 
