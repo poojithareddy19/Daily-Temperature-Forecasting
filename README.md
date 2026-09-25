@@ -1,5 +1,8 @@
 # MLOps: Daily Temperature Forecasting
 
+![CI](https://github.com/poojithareddy19/Daily-Temperature-Forecasting/actions/workflows/ci.yml/badge.svg)
+![CD](https://github.com/poojithareddy19/Daily-Temperature-Forecasting/actions/workflows/cd.yml/badge.svg)
+
 An end-to-end, production-grade MLOps project built from scratch over 30 days. Forecasts the next day's minimum temperature and ships as a containerized API.
 
 ## Development
