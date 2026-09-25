@@ -10,7 +10,7 @@ for Melbourne from the last 30 days of readings.
 
 ## Live demo
 
-- API: https://temperature-forecast-api-mejw.onrender.com
+- Web UI: https://temperature-forecast-api-mejw.onrender.com (fetches recent readings for any place, or paste your own)
 - Interactive docs: https://temperature-forecast-api-mejw.onrender.com/docs
 - Health: https://temperature-forecast-api-mejw.onrender.com/health
 
