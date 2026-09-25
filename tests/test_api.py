@@ -63,3 +63,19 @@ def test_predict_with_stub_model(monkeypatch):
 
     assert r.status_code == 200
     assert r.json()["prediction"] == 21.5
+
+
+def test_metrics_endpoint_reports_predictions(monkeypatch):
+    class Stub:
+        def predict(self, X):
+            return [21.5]
+
+    monkeypatch.setattr(main, "_bundle", {"model": Stub(), "features": FEATURES})
+    client = TestClient(main.app)
+    body = {"date": "1991-01-01", "recent_temps": [10.0] * 30}
+    assert client.post("/predict", json=body).status_code == 200
+
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    assert "predictions_total" in r.text
+    assert "prediction_latency_seconds_bucket" in r.text

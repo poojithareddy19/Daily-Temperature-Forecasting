@@ -2,6 +2,7 @@ from datetime import datetime
 
 import joblib
 from fastapi import FastAPI, HTTPException
+from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
 from src.config import PROJECT_ROOT, load_config
@@ -12,6 +13,12 @@ logger = get_logger(__name__)
 cfg = load_config()
 
 app = FastAPI(title="Temperature Forecast API", version="1.0.0")
+
+# Prometheus scrape endpoint and the metrics it exposes. Defined once at import
+# time: registering a metric inside a request handler raises on the second call.
+app.mount("/metrics", make_asgi_app())
+PREDICTIONS = Counter("predictions_total", "Total prediction requests")
+PRED_LATENCY = Histogram("prediction_latency_seconds", "Prediction latency in seconds")
 
 _bundle = None
 
@@ -69,7 +76,9 @@ def predict(req: PredictionRequest):
             detail="Model not loaded",
         )
 
-    value = float(_bundle["model"].predict([_serving_features(req)])[0])
+    with PRED_LATENCY.time():
+        value = float(_bundle["model"].predict([_serving_features(req)])[0])
+    PREDICTIONS.inc()
 
     logger.info(
         "Predicted %.2f for date=%s",
