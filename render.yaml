@@ -1,0 +1,11 @@
+# Render Blueprint (infrastructure as code). On render.com choose New > Blueprint,
+# connect this repository, and Render provisions the service described here.
+services:
+  - type: web
+    name: temperature-forecast-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: main
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
