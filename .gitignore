@@ -220,3 +220,4 @@ __marimo__/
 # Generated ML artifacts (rebuilt by the pipeline, never committed)
 mlruns/
 data/processed/
+reports/
