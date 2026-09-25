@@ -4,10 +4,12 @@ from src.features.build_features import build_features
 
 
 def test_build_features_creates_expected_columns():
-    df = pd.DataFrame({
-        "date": pd.date_range("2020-01-01", periods=60, freq="D"),
-        "temp": range(60),
-    })
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2020-01-01", periods=60, freq="D"),
+            "temp": range(60),
+        }
+    )
 
     out = build_features(
         df,

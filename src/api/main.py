@@ -7,7 +7,6 @@ from src.api.schemas import PredictionRequest, PredictionResponse
 from src.config import PROJECT_ROOT, load_config
 from src.logger import get_logger
 
-
 logger = get_logger(__name__)
 
 cfg = load_config()
@@ -70,11 +69,7 @@ def predict(req: PredictionRequest):
             detail="Model not loaded",
         )
 
-    value = float(
-        _bundle["model"].predict(
-            [_serving_features(req)]
-        )[0]
-    )
+    value = float(_bundle["model"].predict([_serving_features(req)])[0])
 
     logger.info(
         "Predicted %.2f for date=%s",

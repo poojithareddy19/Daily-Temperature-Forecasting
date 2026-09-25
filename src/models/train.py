@@ -12,7 +12,6 @@ from src.logger import get_logger
 from src.models.evaluate import mae, rmse
 from src.models.split import temporal_train_test_split
 
-
 logger = get_logger(__name__)
 
 TARGET = "temp"

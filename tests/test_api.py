@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from src.api import main
 
-
 FEATURES = [
     "month",
     "dayofyear",

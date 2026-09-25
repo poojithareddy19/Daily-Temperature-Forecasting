@@ -1,8 +1,7 @@
 import logging
 import sys
-from unicodedata import name
-from venv import logger
-from xml.sax import handler
+
+
 def get_logger(name: str, level: str = "INFO") -> logging.Logger:
     logger = logging.getLogger(name)
     if logger.handlers:  # avoid duplicate handlers on re-import
