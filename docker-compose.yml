@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+
+  mlflow:
+    # Pinned to the same version as the mlflow client in requirements.txt.
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri /mlruns
+    volumes:
+      - ./mlruns:/mlruns
