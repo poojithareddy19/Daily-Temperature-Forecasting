@@ -1,8 +1,9 @@
 from datetime import datetime
+from pathlib import Path
 
 import joblib
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
@@ -14,6 +15,8 @@ logger = get_logger(__name__)
 cfg = load_config()
 
 app = FastAPI(title="Temperature Forecast API", version="1.0.0")
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # Prometheus scrape endpoint and the metrics it exposes. Defined once at import
 # time: registering a metric inside a request handler raises on the second call.
@@ -39,8 +42,8 @@ def _load_model():
 
 @app.get("/", include_in_schema=False)
 def root():
-    """Send visitors of the bare URL to the interactive docs."""
-    return RedirectResponse(url="/docs")
+    """Serve the single-page UI."""
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health")

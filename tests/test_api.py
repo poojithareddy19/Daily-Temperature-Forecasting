@@ -81,8 +81,9 @@ def test_metrics_endpoint_reports_predictions(monkeypatch):
     assert "prediction_latency_seconds_bucket" in r.text
 
 
-def test_root_redirects_to_docs():
+def test_root_serves_ui():
     client = TestClient(main.app)
-    r = client.get("/", follow_redirects=False)
-    assert r.status_code == 307
-    assert r.headers["location"] == "/docs"
+    r = client.get("/")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert "Predict" in r.text

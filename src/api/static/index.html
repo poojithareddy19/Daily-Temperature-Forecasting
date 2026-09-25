@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily minimum temperature forecast</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  .muted { opacity: .72; font-size: .92rem; }
+  fieldset { border: 1px solid #8884; border-radius: 8px; margin: 1rem 0; padding: 1rem; }
+  legend { padding: 0 .4rem; font-weight: 600; }
+  label { display: block; margin: .5rem 0 .2rem; font-weight: 600; }
+  input, textarea, button { font: inherit; }
+  input[type=text], input[type=date], textarea {
+    width: 100%; box-sizing: border-box; padding: .5rem; border: 1px solid #8886;
+    border-radius: 6px; background: transparent; color: inherit;
+  }
+  textarea { min-height: 4.5rem; }
+  .row { display: flex; gap: .5rem; align-items: flex-end; }
+  .row > div { flex: 1; }
+  button { padding: .55rem 1rem; border-radius: 6px; border: 1px solid #8886; background: #4a6cf7; color: #fff; cursor: pointer; }
+  button.secondary { background: transparent; color: inherit; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #result { font-size: 2.2rem; font-weight: 700; margin: .25rem 0; }
+  .error { color: #d33; min-height: 1.2em; }
+  footer { margin-top: 2rem; font-size: .85rem; opacity: .7; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>Daily minimum temperature forecast</h1>
+<p class="muted">Predicts tomorrow's minimum temperature from the last 30 daily minimums.
+The model was trained on Melbourne, Australia. Forecasts for other places are a demonstration
+of the service, not a weather service.</p>
+
+<fieldset>
+  <legend>1. Recent temperatures</legend>
+  <div class="row">
+    <div>
+      <label for="place">Fill from a location (last 30 observed days, via Open-Meteo)</label>
+      <input id="place" type="text" placeholder="Melbourne" value="Melbourne">
+    </div>
+    <button id="fetch" class="secondary" type="button">Fetch</button>
+  </div>
+  <p id="place-info" class="muted"></p>
+  <label for="temps">Or paste 30 values, newest first, comma separated</label>
+  <textarea id="temps" placeholder="12.0, 11.5, 13.2, ..."></textarea>
+</fieldset>
+
+<fieldset>
+  <legend>2. Target date</legend>
+  <input id="date" type="date">
+</fieldset>
+
+<button id="predict" type="button">Predict</button>
+<p id="error" class="error"></p>
+
+<fieldset id="out" hidden>
+  <legend>Forecast</legend>
+  <div id="result"></div>
+  <p id="detail" class="muted"></p>
+</fieldset>
+
+<footer>
+  <a href="/docs">API docs</a> &middot; <a href="/health">health</a> &middot;
+  <a href="/metrics/">metrics</a> &middot;
+  <a href="https://github.com/poojithareddy19/Daily-Temperature-Forecasting">source</a>
+</footer>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const tomorrow = new Date(Date.now() + 864e5);
+  $("date").value = tomorrow.toISOString().slice(0, 10);
+
+  function setError(msg) { $("error").textContent = msg || ""; }
+
+  async function fetchTemps() {
+    const name = $("place").value.trim();
+    if (!name) { setError("Enter a place name."); return; }
+    setError("");
+    $("fetch").disabled = true;
+    $("place-info").textContent = "Looking up " + name + "...";
+    try {
+      const geo = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&name="
+        + encodeURIComponent(name)).then((r) => r.json());
+      const hit = geo.results && geo.results[0];
+      if (!hit) { throw new Error("No location found for \"" + name + "\"."); }
+      const url = "https://api.open-meteo.com/v1/forecast?daily=temperature_2m_min"
+        + "&past_days=31&forecast_days=1&timezone=auto"
+        + "&latitude=" + hit.latitude + "&longitude=" + hit.longitude;
+      const wx = await fetch(url).then((r) => r.json());
+      const days = wx.daily.time;
+      const mins = wx.daily.temperature_2m_min;
+      const pairs = [];
+      // Drop the final entry (today's forecast); keep observed days only.
+      for (let i = 0; i < days.length - 1; i++) {
+        if (mins[i] !== null) { pairs.push([days[i], mins[i]]); }
+      }
+      const last30 = pairs.slice(-30).reverse();  // newest first
+      if (last30.length < 30) { throw new Error("Only " + last30.length + " observed days available."); }
+      $("temps").value = last30.map((p) => p[1]).join(", ");
+      $("place-info").textContent = hit.name + (hit.admin1 ? ", " + hit.admin1 : "") + ", " + hit.country
+        + " (" + hit.latitude.toFixed(2) + ", " + hit.longitude.toFixed(2) + "). Newest reading "
+        + last30[0][0] + ": " + last30[0][1] + " °C.";
+    } catch (e) {
+      $("place-info").textContent = "";
+      setError(e.message);
+    } finally {
+      $("fetch").disabled = false;
+    }
+  }
+
+  async function predict() {
+    setError("");
+    $("out").hidden = true;
+    const temps = $("temps").value.split(/[,\s]+/).filter(Boolean).map(Number);
+    if (temps.length < 30 || temps.some(Number.isNaN)) {
+      setError("Need at least 30 numeric values, newest first (got " + temps.length + ").");
+      return;
+    }
+    $("predict").disabled = true;
+    try {
+      const r = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: $("date").value, recent_temps: temps }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+      }
+      $("result").textContent = body.prediction.toFixed(1) + " °C";
+      $("detail").textContent = "Predicted minimum for " + body.date
+        + ". Newest value in your input: " + temps[0] + " °C.";
+      $("out").hidden = false;
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      $("predict").disabled = false;
+    }
+  }
+
+  $("fetch").addEventListener("click", fetchTemps);
+  $("predict").addEventListener("click", predict);
+})();
+</script>
+</body>
+</html>
