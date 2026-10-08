@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 import joblib
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
@@ -47,8 +47,14 @@ def root():
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok", "model_loaded": _bundle is not None}
+def health(response: Response):
+    # 503 without a model, so Render does not route traffic to a service that cannot predict.
+    if _bundle is None:
+        response.status_code = 503
+    return {
+        "status": "ok" if _bundle is not None else "model_missing",
+        "model_loaded": _bundle is not None,
+    }
 
 
 def _serving_features(req: PredictionRequest) -> list:
