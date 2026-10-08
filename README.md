@@ -32,7 +32,7 @@ public CSV (GitHub raw URL)
         |  python -m src.data.ingest
         v
 data/raw  (tracked by DVC, not Git)
-        |  dvc repro: prepare -> train, backtest
+        |  dvc repro: prepare -> train, backtest -> error_analysis
         v
 data/processed/features.csv  ->  Ridge        ->  models/model.pkl + metrics.json
         |                         (params.yaml, every run logged to MLflow)
@@ -134,6 +134,21 @@ goes to the simpler model. Ridge wins on four of the five years and varies less 
 to year, so production runs Ridge. A side benefit is size: the forest pickle was about
 96 MB, the Ridge one is a few KB, so the image builds faster and the model is easy to
 explain (it is a weighted sum of recent temperatures plus a seasonal term).
+
+### Where the model is worst
+
+![RMSE by month](reports/rmse_by_month.png)
+
+Melbourne is in the southern hemisphere, so winter is June to August. Errors are lowest
+in winter (Ridge RMSE 1.98) and highest in spring, September to November (2.70), with
+summer in between (2.15). Of the 61 days the backtest missed by more than 5 deg C, 31 fall
+in spring and 42 of the 61 are nights that turned out warmer than predicted, which looks
+like the jumpy spring pattern of warm northerlies followed by cool changes. A day-to-day
+change feature such as `lag_1 - lag_2` would not help Ridge, because it is already a linear
+combination of two inputs; a model that can use it non-linearly, or an outside signal like
+cloud cover or wind direction, is the more likely fix. Per-month numbers are in
+[reports/error_by_month.csv](reports/error_by_month.csv) and the residuals over time in
+[reports/residuals.png](reports/residuals.png).
 
 ## Monitoring
 

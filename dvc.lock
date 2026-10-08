@@ -76,3 +76,27 @@ stages:
       hash: md5
       md5: ee3c23cd0768df115a8c7b099e630474
       size: 301
+  error_analysis:
+    cmd: python scripts/error_analysis.py
+    deps:
+    - path: reports/backtest_predictions.csv
+      hash: md5
+      md5: ef812a28e9cb0fb370039d52c1a41194
+      size: 225120
+    - path: scripts/error_analysis.py
+      hash: md5
+      md5: c2743d29a0299f3bd539b31202092a78
+      size: 2024
+    outs:
+    - path: reports/error_by_month.csv
+      hash: md5
+      md5: bbb99f5812a54fef20dd2f6f18f01954
+      size: 2070
+    - path: reports/residuals.png
+      hash: md5
+      md5: 1edf4034137a4ec20e6597e50b09ad42
+      size: 134390
+    - path: reports/rmse_by_month.png
+      hash: md5
+      md5: ddf65bf0dda80fc7226bfc9b193f474e
+      size: 24348

@@ -223,3 +223,6 @@ data/processed/
 reports/*
 !reports/backtest_summary.json
 !reports/backtest.md
+!reports/error_by_month.csv
+!reports/residuals.png
+!reports/rmse_by_month.png
