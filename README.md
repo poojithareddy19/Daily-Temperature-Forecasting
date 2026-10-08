@@ -4,8 +4,9 @@
 ![CD](https://github.com/poojithareddy19/Daily-Temperature-Forecasting/actions/workflows/cd.yml/badge.svg)
 
 End-to-end MLOps around a deliberately simple model: versioned data, tracked experiments,
-a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, a metrics
-endpoint and drift report, and a live cloud deployment. The service forecasts the next day's minimum temperature
+a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, local
+Prometheus and Grafana monitoring with drift checks on logged requests, and a live cloud
+deployment. The service forecasts the next day's minimum temperature
 for Melbourne from the last 30 days of readings.
 
 ## Live demo
@@ -62,7 +63,7 @@ green check), CD ships whatever lands on `main`.
 | Quality | pytest, Ruff, Black, pre-commit | Fast tests, fast lint, no formatting debates |
 | Packaging | Docker (multi-stage), docker-compose | Identical runtime on laptop, CI, and cloud |
 | CI/CD | GitHub Actions, GHCR | Native to the repo; images tagged `latest` and `sha-<commit>` |
-| Metrics and drift | prometheus-client, Evidently | A `/metrics` endpoint and an on-demand drift report |
+| Monitoring | Prometheus, Grafana, Evidently | Request rate and latency dashboards locally; drift on logged requests |
 | Hosting | Render | Docker deploys straight from GitHub, infrastructure declared in `render.yaml` |
 
 ## Quickstart
@@ -152,17 +153,33 @@ cloud cover or wind direction, is the more likely fix. Per-month numbers are in
 
 ## Monitoring
 
-What exists today, stated plainly:
+Locally, `make monitor` (docker compose) starts the API with Prometheus and Grafana next
+to it:
 
-- `GET /metrics` exposes Prometheus metrics (request count and latency):
-  `predictions_total` and a `prediction_latency_seconds` histogram. Nothing scrapes it yet;
-  there is no Prometheus server or dashboard.
-- `make drift` runs an Evidently drift report comparing two historical windows of the
-  feature table (the first 70% against the last 30%) and writes `reports/drift.html`. It
-  runs by hand and does not look at live requests.
-- `GET /health` returns 503 when no model is loaded and includes the sha256 of the model
-  file that is being served.
-- Every prediction request is logged with its date and result.
+| Service | URL | What it does |
+|---|---|---|
+| API | http://localhost:8000 | `/metrics` exposes `predictions_total` and a `prediction_latency_seconds` histogram |
+| Prometheus | http://localhost:9090 | scrapes the API every 15 seconds ([config](monitoring/prometheus.yml)) |
+| Grafana | http://localhost:3000 | "Temperature Forecast API" dashboard: request rate and p95 latency, provisioned from [monitoring/grafana](monitoring/grafana) |
+
+`make traffic` sends 200 requests built from real 30-day windows, so the panels have
+something to show.
+
+**Drift.** Every `/predict` call appends the request's features and a timestamp to
+`logs/requests.jsonl`. `make drift` runs an Evidently report with the training features as
+the reference and those logged requests as the current window, and writes
+`reports/drift.html`. With fewer than 100 logged requests there is not enough to compare,
+so it falls back to the test period and prints a warning saying the report is not about
+live traffic. The [Drift report workflow](.github/workflows/drift.yml) runs every Monday on
+the test period and keeps the HTML as a build artifact.
+
+**Limits.** Prometheus and Grafana only run locally; nothing scrapes the Render service.
+Render's free tier wipes the container's disk on every restart and redeploy, so the request
+log there is not durable. In a real system those logs would go to object storage or a
+database, and the drift job would read from there.
+
+`GET /health` returns 503 when no model is loaded and includes the sha256 of the model file
+being served.
 
 ## Project structure
 
@@ -179,10 +196,11 @@ src/
   features/          lags, rolling means, calendar features; serving.py reuses them for /predict
   models/            split.py, evaluate.py, train.py
   api/               schemas.py, main.py (/health /predict /metrics)
-  monitoring/        drift_report.py
+  monitoring/        drift_report.py (training features vs logged requests)
 tests/               unit tests, a train/serve feature parity test, API tests with a stubbed model
 Dockerfile           multi-stage image; the model is trained during the build
-docker-compose.yml   API plus an MLflow server for local use
+docker-compose.yml   API, MLflow, Prometheus and Grafana for local use
+monitoring/          Prometheus scrape config, Grafana data source and dashboard
 dvc.yaml / dvc.lock  pipeline stages and pinned input/output hashes
 params.yaml          hyperparameters and feature settings
 render.yaml          Render blueprint (infrastructure as code)
@@ -217,8 +235,9 @@ request, and the `quality` CI check must pass before merging.
 
 Scoped out of v1 and documented as next steps: scheduled retraining triggered by drift,
 a remote MLflow server with the Model Registry as the deploy gate, Kubernetes with a
-HorizontalPodAutoscaler, Terraform for the cloud infrastructure, and Grafana dashboards
-on top of the Prometheus metrics. See the changelog for what shipped.
+HorizontalPodAutoscaler, Terraform for the cloud infrastructure, a hosted Prometheus that
+scrapes the deployed service, and durable storage for the request log. See the changelog
+for what shipped.
 
 ## License
 

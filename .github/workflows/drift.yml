@@ -1,0 +1,39 @@
+name: Drift report
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"  # Mondays 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build features from the public dataset
+        run: |
+          python -m src.data.ingest
+          python -m src.features.build_features
+
+      # CI has no live request log, so this compares training against the test period.
+      - name: Run drift report
+        run: python -m src.monitoring.drift_report --test-period
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: reports/drift.html
