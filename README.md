@@ -4,8 +4,8 @@
 ![CD](https://github.com/poojithareddy19/Daily-Temperature-Forecasting/actions/workflows/cd.yml/badge.svg)
 
 End-to-end MLOps around a deliberately simple model: versioned data, tracked experiments,
-a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, monitoring,
-and a live cloud deployment. The service forecasts the next day's minimum temperature
+a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, a metrics
+endpoint and drift report, and a live cloud deployment. The service forecasts the next day's minimum temperature
 for Melbourne from the last 30 days of readings.
 
 ## Live demo
@@ -62,7 +62,7 @@ green check), CD ships whatever lands on `main`.
 | Quality | pytest, Ruff, Black, pre-commit | Fast tests, fast lint, no formatting debates |
 | Packaging | Docker (multi-stage), docker-compose | Identical runtime on laptop, CI, and cloud |
 | CI/CD | GitHub Actions, GHCR | Native to the repo; images tagged `latest` and `sha-<commit>` |
-| Monitoring | prometheus-client, Evidently | Request metrics and data-drift reports |
+| Metrics and drift | prometheus-client, Evidently | A `/metrics` endpoint and an on-demand drift report |
 | Hosting | Render | Docker deploys straight from GitHub, infrastructure declared in `render.yaml` |
 
 ## Quickstart
@@ -152,10 +152,16 @@ cloud cover or wind direction, is the more likely fix. Per-month numbers are in
 
 ## Monitoring
 
-- `GET /metrics` exposes Prometheus metrics: `predictions_total` and a
-  `prediction_latency_seconds` histogram.
-- `python -m src.monitoring.drift_report` compares the most recent 30% of the feature
-  table against the first 70% with Evidently and writes `reports/drift.html`.
+What exists today, stated plainly:
+
+- `GET /metrics` exposes Prometheus metrics (request count and latency):
+  `predictions_total` and a `prediction_latency_seconds` histogram. Nothing scrapes it yet;
+  there is no Prometheus server or dashboard.
+- `make drift` runs an Evidently drift report comparing two historical windows of the
+  feature table (the first 70% against the last 30%) and writes `reports/drift.html`. It
+  runs by hand and does not look at live requests.
+- `GET /health` returns 503 when no model is loaded and includes the sha256 of the model
+  file that is being served.
 - Every prediction request is logged with its date and result.
 
 ## Project structure
