@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import joblib
@@ -103,6 +104,9 @@ def main() -> dict:
             },
             model_path,
         )
+        # Lets /health prove which model file is live.
+        metrics["model_sha256"] = hashlib.sha256(model_path.read_bytes()).hexdigest()
+        mlflow.set_tag("model_sha256", metrics["model_sha256"])
 
         with open(PROJECT_ROOT / "metrics.json", "w") as f:
             json.dump(metrics, f, indent=2)

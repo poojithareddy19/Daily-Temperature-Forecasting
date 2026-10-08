@@ -33,7 +33,8 @@ def test_health_without_model_returns_503(monkeypatch):
     r = client.get("/health")
 
     assert r.status_code == 503
-    assert r.json() == {"status": "model_missing", "model_loaded": False}
+    assert r.json()["status"] == "model_missing"
+    assert r.json()["model_loaded"] is False
 
 
 def test_predict_without_model_returns_503(monkeypatch):

@@ -1,3 +1,5 @@
+import hashlib
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -18,7 +20,30 @@ cfg = load_config()
 with open(PROJECT_ROOT / "params.yaml") as f:
     FEATURE_PARAMS = yaml.safe_load(f)["features"]
 
-app = FastAPI(title="Temperature Forecast API", version="1.0.0")
+_bundle = None
+_model_sha256 = None
+
+
+def _load_model():
+    global _bundle, _model_sha256
+
+    path = PROJECT_ROOT / cfg["paths"]["model_path"]
+
+    if path.exists():
+        _bundle = joblib.load(path)
+        _model_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        logger.info("Loaded model from %s (sha256 %s)", path, _model_sha256)
+    else:
+        logger.warning("No model at %s; /predict returns 503", path)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _load_model()
+    yield
+
+
+app = FastAPI(title="Temperature Forecast API", version="1.0.0", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -27,21 +52,6 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/metrics", make_asgi_app())
 PREDICTIONS = Counter("predictions_total", "Total prediction requests")
 PRED_LATENCY = Histogram("prediction_latency_seconds", "Prediction latency in seconds")
-
-_bundle = None
-
-
-@app.on_event("startup")
-def _load_model():
-    global _bundle
-
-    path = PROJECT_ROOT / cfg["paths"]["model_path"]
-
-    if path.exists():
-        _bundle = joblib.load(path)
-        logger.info("Loaded model from %s", path)
-    else:
-        logger.warning("No model at %s; /predict returns 503", path)
 
 
 @app.get("/", include_in_schema=False)
@@ -58,6 +68,7 @@ def health(response: Response):
     return {
         "status": "ok" if _bundle is not None else "model_missing",
         "model_loaded": _bundle is not None,
+        "model_sha256": _model_sha256,
     }
 
 
