@@ -1,3 +1,6 @@
+import json
+
+import pytest
 from fastapi.testclient import TestClient
 
 from src.api import main
@@ -14,6 +17,13 @@ FEATURES = [
     "roll_mean_7",
     "roll_mean_30",
 ]
+
+
+@pytest.fixture(autouse=True)
+def request_log(tmp_path, monkeypatch):
+    path = tmp_path / "requests.jsonl"
+    monkeypatch.setattr(main, "REQUEST_LOG", path)
+    return path
 
 
 def test_health_ok(monkeypatch):
@@ -99,3 +109,23 @@ def test_root_serves_ui():
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
     assert "Predict" in r.text
+
+
+def test_predict_appends_features_to_request_log(monkeypatch, request_log):
+    class Stub:
+        def predict(self, X):
+            return [21.5]
+
+    monkeypatch.setattr(main, "_bundle", {"model": Stub(), "features": FEATURES})
+    client = TestClient(main.app)
+    body = {"date": "1991-01-01", "recent_temps": [10.0] * 30}
+
+    assert client.post("/predict", json=body).status_code == 200
+    assert client.post("/predict", json=body).status_code == 200
+
+    records = [json.loads(line) for line in request_log.read_text().splitlines()]
+    assert len(records) == 2
+    assert set(FEATURES) <= set(records[0])
+    assert records[0]["lag_1"] == 10.0
+    assert records[0]["prediction"] == 21.5
+    assert "ts" in records[0]

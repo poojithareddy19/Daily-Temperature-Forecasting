@@ -31,7 +31,7 @@ run:  ## serve the API locally with reload
 docker:  ## build the image locally
 	docker build -t temperature-forecast:latest .
 
-drift:  ## write reports/drift.html with Evidently
+drift:  ## Evidently report: training features vs logged requests (or the test period)
 	python -m src.monitoring.drift_report
 
 smoke:  ## smoke-test a deployment: make smoke URL=https://...

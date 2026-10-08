@@ -1,6 +1,7 @@
 import hashlib
+import json
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import joblib
@@ -19,6 +20,8 @@ logger = get_logger(__name__)
 cfg = load_config()
 with open(PROJECT_ROOT / "params.yaml") as f:
     FEATURE_PARAMS = yaml.safe_load(f)["features"]
+
+REQUEST_LOG = PROJECT_ROOT / cfg["paths"]["request_log"]
 
 _bundle = None
 _model_sha256 = None
@@ -72,7 +75,7 @@ def health(response: Response):
     }
 
 
-def _serving_features(req: PredictionRequest) -> list:
+def _serving_features(req: PredictionRequest) -> dict:
     try:
         d = datetime.strptime(req.date, "%Y-%m-%d")
     except ValueError as exc:
@@ -81,11 +84,21 @@ def _serving_features(req: PredictionRequest) -> list:
             detail="date must be YYYY-MM-DD",
         ) from exc
 
-    feat = features_from_history(
+    return features_from_history(
         d, req.recent_temps, FEATURE_PARAMS["lags"], FEATURE_PARAMS["roll_windows"]
     )
 
-    return [feat[c] for c in _bundle["features"]]
+
+def _log_request(feat: dict, prediction: float) -> None:
+    """Append the request's features to a JSONL file; the drift report reads it back."""
+    record = {"ts": datetime.now(UTC).isoformat(), **feat, "prediction": prediction}
+    try:
+        REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(REQUEST_LOG, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError:
+        # Losing a log line must never fail the prediction itself.
+        logger.warning("Could not write request log to %s", REQUEST_LOG, exc_info=True)
 
 
 @app.post("/predict", response_model=PredictionResponse)
@@ -96,9 +109,11 @@ def predict(req: PredictionRequest):
             detail="Model not loaded",
         )
 
+    feat = _serving_features(req)
     with PRED_LATENCY.time():
-        value = float(_bundle["model"].predict([_serving_features(req)])[0])
+        value = float(_bundle["model"].predict([[feat[c] for c in _bundle["features"]]])[0])
     PREDICTIONS.inc()
+    _log_request(feat, value)
 
     logger.info(
         "Predicted %.2f for date=%s",

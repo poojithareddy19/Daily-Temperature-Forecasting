@@ -5,6 +5,9 @@ services:
       - "8000:8000"
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      # Request log on the host, so `make drift` can compare it with the training data.
+      - ./logs:/app/logs
     depends_on:
       - mlflow
 
