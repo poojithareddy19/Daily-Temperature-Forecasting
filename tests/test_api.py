@@ -129,3 +129,24 @@ def test_predict_appends_features_to_request_log(monkeypatch, request_log):
     assert records[0]["lag_1"] == 10.0
     assert records[0]["prediction"] == 21.5
     assert "ts" in records[0]
+
+
+def test_health_reports_git_sha(monkeypatch):
+    monkeypatch.setattr(main, "_bundle", {"model": object(), "features": FEATURES})
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc1234")
+    client = TestClient(main.app)
+
+    assert client.get("/health").json()["git_sha"] == "abc1234"
+
+    # An explicit build arg wins over Render's variable.
+    monkeypatch.setenv("GIT_SHA", "def5678")
+    assert client.get("/health").json()["git_sha"] == "def5678"
+
+
+def test_health_git_sha_unknown_without_env(monkeypatch):
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    client = TestClient(main.app)
+
+    assert client.get("/health").json()["git_sha"] == "unknown"

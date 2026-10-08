@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,15 @@ REQUEST_LOG = PROJECT_ROOT / cfg["paths"]["request_log"]
 
 _bundle = None
 _model_sha256 = None
+
+
+def _git_sha() -> str:
+    """Commit this build came from: GIT_SHA (Docker build arg), else Render's own variable."""
+    for var in ("GIT_SHA", "RENDER_GIT_COMMIT"):
+        value = os.getenv(var, "").strip()
+        if value and value != "unknown":
+            return value
+    return "unknown"
 
 
 def _load_model():
@@ -72,6 +82,7 @@ def health(response: Response):
         "status": "ok" if _bundle is not None else "model_missing",
         "model_loaded": _bundle is not None,
         "model_sha256": _model_sha256,
+        "git_sha": _git_sha(),
     }
 
 
