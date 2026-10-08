@@ -6,6 +6,7 @@ import mlflow.sklearn
 import pandas as pd
 import yaml
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge
 
 from src.config import PROJECT_ROOT, load_config
 from src.logger import get_logger
@@ -24,6 +25,29 @@ def load_params() -> dict:
         return yaml.safe_load(f)
 
 
+def build_model(train_params: dict):
+    name = train_params["model"]
+    if name == "ridge":
+        return Ridge(alpha=train_params["ridge_alpha"])
+    if name == "random_forest":
+        return RandomForestRegressor(
+            n_estimators=train_params["n_estimators"],
+            max_depth=train_params["max_depth"],
+            random_state=train_params["random_state"],
+            n_jobs=-1,
+        )
+    raise ValueError(f"Unknown model: {name}")
+
+
+def feature_columns(columns, model_name: str) -> list:
+    features = [c for c in columns if c not in DROP_COLS]
+    if model_name == "ridge":
+        # A linear model cannot use raw day-of-year (it is not linear in temperature);
+        # doy_sin and doy_cos carry the season instead.
+        features.remove("dayofyear")
+    return features
+
+
 def main() -> dict:
     cfg, params = load_config(), load_params()
 
@@ -37,14 +61,8 @@ def main() -> dict:
         params["train"]["test_size"],
     )
 
-    features = [c for c in df.columns if c not in DROP_COLS]
-
-    model = RandomForestRegressor(
-        n_estimators=params["train"]["n_estimators"],
-        max_depth=params["train"]["max_depth"],
-        random_state=params["train"]["random_state"],
-        n_jobs=-1,
-    )
+    features = feature_columns(df.columns, params["train"]["model"])
+    model = build_model(params["train"])
 
     mlflow.set_experiment("temperature-forecast")
 

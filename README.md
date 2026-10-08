@@ -105,7 +105,13 @@ Evaluated on the most recent 20% of the series (724 days), never shuffled.
 | Climatology (train-set average for that day of year) | 2.69 | 2.11 |
 | 7-day rolling mean | 2.58 | 2.03 |
 | Persistence (tomorrow = today) | 2.48 | 1.95 |
-| RandomForest, 400 trees, depth 20 | **2.15** | **1.70** |
+| Ridge regression (alpha 1.0) | **2.15** | **1.71** |
+| RandomForest, 400 trees, depth 20 | 2.17 | 1.71 |
+
+Both models get the same inputs: lags of 1, 2, 3, 7 and 14 days, 7 and 30 day rolling
+means, and the day of year encoded as sin/cos so the calendar wraps around at New Year.
+The forest also sees the raw day of year; Ridge does not, since it is not linear in
+temperature. Switch between them with `train.model` in `params.yaml`.
 
 Each baseline only uses data that was available before the day being forecast. Persistence
 is the hardest one to beat because daily temperature is strongly autocorrelated, so it is

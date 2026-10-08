@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from src.api import main
 
 FEATURES = [
-    "month",
     "dayofyear",
-    "dayofweek",
+    "doy_sin",
+    "doy_cos",
     "lag_1",
     "lag_2",
     "lag_3",

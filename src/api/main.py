@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -68,10 +69,11 @@ def _serving_features(req: PredictionRequest) -> list:
             detail="date must be YYYY-MM-DD",
         ) from exc
 
+    doy = d.timetuple().tm_yday
     feat = {
-        "month": d.month,
-        "dayofyear": d.timetuple().tm_yday,
-        "dayofweek": d.weekday(),
+        "dayofyear": doy,
+        "doy_sin": math.sin(2 * math.pi * doy / 365.25),
+        "doy_cos": math.cos(2 * math.pi * doy / 365.25),
         "lag_1": t[0],
         "lag_2": t[1],
         "lag_3": t[2],
