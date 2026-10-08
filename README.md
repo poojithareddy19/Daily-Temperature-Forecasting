@@ -101,11 +101,16 @@ Evaluated on the most recent 20% of the series (724 days), never shuffled.
 
 | Model | RMSE (deg C) | MAE (deg C) |
 |---|---|---|
-| Persistence baseline (tomorrow = today) | 2.48 | 1.95 |
+| Seasonal naive (same day last year) | 3.73 | 2.96 |
+| Climatology (train-set average for that day of year) | 2.69 | 2.11 |
+| 7-day rolling mean | 2.58 | 2.03 |
+| Persistence (tomorrow = today) | 2.48 | 1.95 |
 | RandomForest, 400 trees, depth 20 | **2.15** | **1.70** |
 
-The baseline is the bar to beat; a model that cannot beat "predict yesterday" is not
-earning its complexity.
+Each baseline only uses data that was available before the day being forecast. Persistence
+is the hardest one to beat because daily temperature is strongly autocorrelated, so it is
+the bar that matters; climatology and same-day-last-year are much weaker for a next-day
+forecast.
 
 ## Monitoring
 

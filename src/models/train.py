@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 
 from src.config import PROJECT_ROOT, load_config
 from src.logger import get_logger
+from src.models.baselines import baseline_predictions
 from src.models.evaluate import mae, rmse
 from src.models.split import temporal_train_test_split
 
@@ -63,6 +64,14 @@ def main() -> dict:
         }
 
         mlflow.log_metrics(metrics)
+
+        base = baseline_predictions(df, train_df, test_df)
+        metrics["baselines"] = {
+            name: {"rmse": rmse(test_df[TARGET], p), "mae": mae(test_df[TARGET], p)}
+            for name, p in base.items()
+        }
+        for name, m in metrics["baselines"].items():
+            mlflow.log_metric(f"baseline_{name}_rmse", m["rmse"])
 
         mlflow.sklearn.log_model(model, "model")
 
