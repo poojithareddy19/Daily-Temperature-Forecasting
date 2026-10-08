@@ -163,7 +163,9 @@ to it:
 | Grafana | http://localhost:3000 | "Temperature Forecast API" dashboard: request rate and p95 latency, provisioned from [monitoring/grafana](monitoring/grafana) |
 
 `make traffic` sends 200 requests built from real 30-day windows, so the panels have
-something to show.
+something to show:
+
+![Grafana dashboard: request rate and p95 latency during a 200-request run](docs/images/grafana.png)
 
 **Drift.** Every `/predict` call appends the request's features and a timestamp to
 `logs/requests.jsonl`. `make drift` runs an Evidently report with the training features as
