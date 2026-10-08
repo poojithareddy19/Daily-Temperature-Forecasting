@@ -170,11 +170,11 @@ src/
   config.py          config loader, PROJECT_ROOT
   logger.py          shared structured logger
   data/              ingest.py (download), validate.py (fail-fast checks)
-  features/          lags, rolling means, calendar features
+  features/          lags, rolling means, calendar features; serving.py reuses them for /predict
   models/            split.py, evaluate.py, train.py
   api/               schemas.py, main.py (/health /predict /metrics)
   monitoring/        drift_report.py
-tests/               unit tests for features, metrics, split; API tests with a stubbed model
+tests/               unit tests, a train/serve feature parity test, API tests with a stubbed model
 Dockerfile           multi-stage image; the model is trained during the build
 docker-compose.yml   API plus an MLflow server for local use
 dvc.yaml / dvc.lock  pipeline stages and pinned input/output hashes

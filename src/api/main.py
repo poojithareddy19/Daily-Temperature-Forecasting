@@ -1,19 +1,22 @@
-import math
 from datetime import datetime
 from pathlib import Path
 
 import joblib
+import yaml
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
 from src.config import PROJECT_ROOT, load_config
+from src.features.serving import features_from_history
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 cfg = load_config()
+with open(PROJECT_ROOT / "params.yaml") as f:
+    FEATURE_PARAMS = yaml.safe_load(f)["features"]
 
 app = FastAPI(title="Temperature Forecast API", version="1.0.0")
 
@@ -59,8 +62,6 @@ def health(response: Response):
 
 
 def _serving_features(req: PredictionRequest) -> list:
-    t = req.recent_temps
-
     try:
         d = datetime.strptime(req.date, "%Y-%m-%d")
     except ValueError as exc:
@@ -69,19 +70,9 @@ def _serving_features(req: PredictionRequest) -> list:
             detail="date must be YYYY-MM-DD",
         ) from exc
 
-    doy = d.timetuple().tm_yday
-    feat = {
-        "dayofyear": doy,
-        "doy_sin": math.sin(2 * math.pi * doy / 365.25),
-        "doy_cos": math.cos(2 * math.pi * doy / 365.25),
-        "lag_1": t[0],
-        "lag_2": t[1],
-        "lag_3": t[2],
-        "lag_7": t[6],
-        "lag_14": t[13],
-        "roll_mean_7": sum(t[:7]) / 7,
-        "roll_mean_30": sum(t[:30]) / 30,
-    }
+    feat = features_from_history(
+        d, req.recent_temps, FEATURE_PARAMS["lags"], FEATURE_PARAMS["roll_windows"]
+    )
 
     return [feat[c] for c in _bundle["features"]]
 
