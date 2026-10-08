@@ -180,8 +180,8 @@ Render's free tier wipes the container's disk on every restart and redeploy, so 
 log there is not durable. In a real system those logs would go to object storage or a
 database, and the drift job would read from there.
 
-`GET /health` returns 503 when no model is loaded and includes the sha256 of the model file
-being served.
+`GET /health` returns 503 when no model is loaded. It also reports `git_sha`, the commit the
+running build came from, and `model_sha256`, the hash of the model file being served.
 
 ## Project structure
 
@@ -215,11 +215,15 @@ Makefile             command shortcuts
   `ghcr.io/poojithareddy19/daily-temperature-forecasting` with `latest` and `sha-<commit>` tags.
 - Render watches `main` too and rebuilds the Dockerfile on every merge, then swaps
   traffic only after `/health` passes.
-- After a deploy, verify it from the outside:
+- After a deploy, verify it from the outside. Pass the commit you expect to be live and
+  the test fails if an older build is still serving:
 
 ```bash
-python scripts/smoke_test.py https://temperature-forecast-api-mejw.onrender.com
+python scripts/smoke_test.py https://temperature-forecast-api-mejw.onrender.com $(git rev-parse --short HEAD)
 ```
+
+`git_sha` comes from the `GIT_SHA` build argument (set by CD for the GHCR image) or, on
+Render, from the `RENDER_GIT_COMMIT` variable Render provides.
 
 ## Development
 
