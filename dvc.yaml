@@ -19,3 +19,17 @@ stages:
     metrics:
       - metrics.json:
           cache: false
+
+  backtest:
+    cmd: python scripts/backtest.py
+    deps:
+      - scripts/backtest.py
+      - src/models/train.py
+      - data/processed/features.csv
+      - params.yaml
+    outs:
+      - reports/backtest.csv
+      - reports/backtest_predictions.csv
+    metrics:
+      - reports/backtest_summary.json:
+          cache: false

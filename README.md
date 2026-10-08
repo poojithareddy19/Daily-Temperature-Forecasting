@@ -32,9 +32,9 @@ public CSV (GitHub raw URL)
         |  python -m src.data.ingest
         v
 data/raw  (tracked by DVC, not Git)
-        |  dvc repro: prepare -> train
+        |  dvc repro: prepare -> train, backtest
         v
-data/processed/features.csv  ->  RandomForest  ->  models/model.pkl + metrics.json
+data/processed/features.csv  ->  Ridge        ->  models/model.pkl + metrics.json
         |                         (params.yaml, every run logged to MLflow)
         v
 FastAPI service  /health  /predict  /metrics      <- Docker image, model baked in at build
@@ -117,6 +117,23 @@ Each baseline only uses data that was available before the day being forecast. P
 is the hardest one to beat because daily temperature is strongly autocorrelated, so it is
 the bar that matters; climatology and same-day-last-year are much weaker for a next-day
 forecast.
+
+### Walk-forward backtest
+
+One split is one sample, so `scripts/backtest.py` (the `backtest` DVC stage) also trains on
+every year before Y and tests on year Y, for Y = 1986 to 1990:
+
+| Model | RMSE per year (1986-1990) | Mean +/- std |
+|---|---|---|
+| Persistence | 2.784, 2.675, 2.773, 2.375, 2.582 | 2.638 +/- 0.168 |
+| Ridge | 2.347, 2.348, 2.382, 2.105, 2.207 | **2.278 +/- 0.118** |
+| RandomForest | 2.408, 2.479, 2.445, 2.080, 2.251 | 2.333 +/- 0.166 |
+
+Decision rule: the model with the lower mean backtest RMSE goes to production, and a tie
+goes to the simpler model. Ridge wins on four of the five years and varies less from year
+to year, so production runs Ridge. A side benefit is size: the forest pickle was about
+96 MB, the Ridge one is a few KB, so the image builds faster and the model is easy to
+explain (it is a weighted sum of recent temperatures plus a seasonal term).
 
 ## Monitoring
 
