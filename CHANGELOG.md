@@ -14,6 +14,11 @@ All notable changes to this project are documented here. The format follows
 - Walk-forward backtest over 1986-1990 as a DVC stage, plus RMSE by month and a residual plot.
 - Train/serve feature parity test.
 - Model sha256 in `metrics.json` and in the `/health` response.
+- Prometheus and Grafana in docker compose, with a provisioned dashboard for request rate
+  and p95 latency, and `scripts/send_requests.py` to generate traffic.
+- `/predict` logs each request's features to `logs/requests.jsonl`; the drift report compares
+  them with the training features (falls back to the test period below 100 requests).
+- Weekly drift report workflow that uploads `drift.html` as an artifact.
 
 ### Changed
 
