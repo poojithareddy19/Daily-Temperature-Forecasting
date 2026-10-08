@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -9,9 +10,11 @@ logger = get_logger(__name__)
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["month"] = df["date"].dt.month
-    df["dayofyear"] = df["date"].dt.dayofyear
-    df["dayofweek"] = df["date"].dt.dayofweek
+    doy = df["date"].dt.dayofyear
+    df["dayofyear"] = doy  # kept for the climatology baseline
+    # sin/cos so that 31 Dec and 1 Jan end up next to each other instead of 364 days apart.
+    df["doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
+    df["doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
     return df
 
 

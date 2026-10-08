@@ -1,20 +1,49 @@
+import hashlib
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
 import joblib
-from fastapi import FastAPI, HTTPException
+import yaml
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
 from src.config import PROJECT_ROOT, load_config
+from src.features.serving import features_from_history
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 cfg = load_config()
+with open(PROJECT_ROOT / "params.yaml") as f:
+    FEATURE_PARAMS = yaml.safe_load(f)["features"]
 
-app = FastAPI(title="Temperature Forecast API", version="1.0.0")
+_bundle = None
+_model_sha256 = None
+
+
+def _load_model():
+    global _bundle, _model_sha256
+
+    path = PROJECT_ROOT / cfg["paths"]["model_path"]
+
+    if path.exists():
+        _bundle = joblib.load(path)
+        _model_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        logger.info("Loaded model from %s (sha256 %s)", path, _model_sha256)
+    else:
+        logger.warning("No model at %s; /predict returns 503", path)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _load_model()
+    yield
+
+
+app = FastAPI(title="Temperature Forecast API", version="1.0.0", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -24,21 +53,6 @@ app.mount("/metrics", make_asgi_app())
 PREDICTIONS = Counter("predictions_total", "Total prediction requests")
 PRED_LATENCY = Histogram("prediction_latency_seconds", "Prediction latency in seconds")
 
-_bundle = None
-
-
-@app.on_event("startup")
-def _load_model():
-    global _bundle
-
-    path = PROJECT_ROOT / cfg["paths"]["model_path"]
-
-    if path.exists():
-        _bundle = joblib.load(path)
-        logger.info("Loaded model from %s", path)
-    else:
-        logger.warning("No model at %s; /predict returns 503", path)
-
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -47,13 +61,18 @@ def root():
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok", "model_loaded": _bundle is not None}
+def health(response: Response):
+    # 503 without a model, so Render does not route traffic to a service that cannot predict.
+    if _bundle is None:
+        response.status_code = 503
+    return {
+        "status": "ok" if _bundle is not None else "model_missing",
+        "model_loaded": _bundle is not None,
+        "model_sha256": _model_sha256,
+    }
 
 
 def _serving_features(req: PredictionRequest) -> list:
-    t = req.recent_temps
-
     try:
         d = datetime.strptime(req.date, "%Y-%m-%d")
     except ValueError as exc:
@@ -62,18 +81,9 @@ def _serving_features(req: PredictionRequest) -> list:
             detail="date must be YYYY-MM-DD",
         ) from exc
 
-    feat = {
-        "month": d.month,
-        "dayofyear": d.timetuple().tm_yday,
-        "dayofweek": d.weekday(),
-        "lag_1": t[0],
-        "lag_2": t[1],
-        "lag_3": t[2],
-        "lag_7": t[6],
-        "lag_14": t[13],
-        "roll_mean_7": sum(t[:7]) / 7,
-        "roll_mean_30": sum(t[:30]) / 30,
-    }
+    feat = features_from_history(
+        d, req.recent_temps, FEATURE_PARAMS["lags"], FEATURE_PARAMS["roll_windows"]
+    )
 
     return [feat[c] for c in _bundle["features"]]
 

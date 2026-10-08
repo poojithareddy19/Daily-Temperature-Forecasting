@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Four naive baselines (persistence, 7-day mean, climatology, same day last year) logged
+  next to the model in `metrics.json` and MLflow.
+- Ridge regression as a second model, chosen with `train.model` in `params.yaml`.
+- Walk-forward backtest over 1986-1990 as a DVC stage, plus RMSE by month and a residual plot.
+- Train/serve feature parity test.
+- Model sha256 in `metrics.json` and in the `/health` response.
+
+### Changed
+
+- Production model is now Ridge instead of RandomForest: lower mean backtest RMSE
+  (2.28 vs 2.33) and a model file of about 1 KB instead of 96 MB.
+- Calendar features: dropped `month` and `dayofweek`, added sin/cos day of year.
+- `/predict` builds its features with the same functions as training.
+- `/health` returns 503 when no model is loaded.
+- Startup moved from the deprecated `on_event` hook to a lifespan handler.
+- README describes the metrics endpoint and drift report as what they are.
+
 ## [1.0.0] - 2026-09-25
 
 First production release: a forecasting microservice with the full MLOps machinery

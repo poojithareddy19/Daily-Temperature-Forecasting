@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from src.api import main
 
 FEATURES = [
-    "month",
     "dayofyear",
-    "dayofweek",
+    "doy_sin",
+    "doy_cos",
     "lag_1",
     "lag_2",
     "lag_3",
@@ -16,13 +16,25 @@ FEATURES = [
 ]
 
 
-def test_health_ok():
+def test_health_ok(monkeypatch):
+    monkeypatch.setattr(main, "_bundle", {"model": object(), "features": FEATURES})
     client = TestClient(main.app)
 
     r = client.get("/health")
 
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+def test_health_without_model_returns_503(monkeypatch):
+    monkeypatch.setattr(main, "_bundle", None)
+    client = TestClient(main.app)
+
+    r = client.get("/health")
+
+    assert r.status_code == 503
+    assert r.json()["status"] == "model_missing"
+    assert r.json()["model_loaded"] is False
 
 
 def test_predict_without_model_returns_503(monkeypatch):

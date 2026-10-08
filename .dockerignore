@@ -7,6 +7,5 @@ data/
 models/
 mlruns/
 reports/
-notebooks/
 tests/
 *.md

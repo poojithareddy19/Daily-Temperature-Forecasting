@@ -4,8 +4,8 @@
 ![CD](https://github.com/poojithareddy19/Daily-Temperature-Forecasting/actions/workflows/cd.yml/badge.svg)
 
 End-to-end MLOps around a deliberately simple model: versioned data, tracked experiments,
-a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, monitoring,
-and a live cloud deployment. The service forecasts the next day's minimum temperature
+a reproducible pipeline, a tested and containerized FastAPI service, CI/CD, a metrics
+endpoint and drift report, and a live cloud deployment. The service forecasts the next day's minimum temperature
 for Melbourne from the last 30 days of readings.
 
 ## Live demo
@@ -32,9 +32,9 @@ public CSV (GitHub raw URL)
         |  python -m src.data.ingest
         v
 data/raw  (tracked by DVC, not Git)
-        |  dvc repro: prepare -> train
+        |  dvc repro: prepare -> train, backtest -> error_analysis
         v
-data/processed/features.csv  ->  RandomForest  ->  models/model.pkl + metrics.json
+data/processed/features.csv  ->  Ridge        ->  models/model.pkl + metrics.json
         |                         (params.yaml, every run logged to MLflow)
         v
 FastAPI service  /health  /predict  /metrics      <- Docker image, model baked in at build
@@ -62,7 +62,7 @@ green check), CD ships whatever lands on `main`.
 | Quality | pytest, Ruff, Black, pre-commit | Fast tests, fast lint, no formatting debates |
 | Packaging | Docker (multi-stage), docker-compose | Identical runtime on laptop, CI, and cloud |
 | CI/CD | GitHub Actions, GHCR | Native to the repo; images tagged `latest` and `sha-<commit>` |
-| Monitoring | prometheus-client, Evidently | Request metrics and data-drift reports |
+| Metrics and drift | prometheus-client, Evidently | A `/metrics` endpoint and an on-demand drift report |
 | Hosting | Render | Docker deploys straight from GitHub, infrastructure declared in `render.yaml` |
 
 ## Quickstart
@@ -101,18 +101,67 @@ Evaluated on the most recent 20% of the series (724 days), never shuffled.
 
 | Model | RMSE (deg C) | MAE (deg C) |
 |---|---|---|
-| Persistence baseline (tomorrow = today) | 2.48 | 1.95 |
-| RandomForest, 400 trees, depth 20 | **2.15** | **1.70** |
+| Seasonal naive (same day last year) | 3.73 | 2.96 |
+| Climatology (train-set average for that day of year) | 2.69 | 2.11 |
+| 7-day rolling mean | 2.58 | 2.03 |
+| Persistence (tomorrow = today) | 2.48 | 1.95 |
+| Ridge regression (alpha 1.0) | **2.15** | **1.71** |
+| RandomForest, 400 trees, depth 20 | 2.17 | 1.71 |
 
-The baseline is the bar to beat; a model that cannot beat "predict yesterday" is not
-earning its complexity.
+Both models get the same inputs: lags of 1, 2, 3, 7 and 14 days, 7 and 30 day rolling
+means, and the day of year encoded as sin/cos so the calendar wraps around at New Year.
+The forest also sees the raw day of year; Ridge does not, since it is not linear in
+temperature. Switch between them with `train.model` in `params.yaml`.
+
+Each baseline only uses data that was available before the day being forecast. Persistence
+is the hardest one to beat because daily temperature is strongly autocorrelated, so it is
+the bar that matters; climatology and same-day-last-year are much weaker for a next-day
+forecast.
+
+### Walk-forward backtest
+
+One split is one sample, so `scripts/backtest.py` (the `backtest` DVC stage) also trains on
+every year before Y and tests on year Y, for Y = 1986 to 1990:
+
+| Model | RMSE per year (1986-1990) | Mean +/- std |
+|---|---|---|
+| Persistence | 2.784, 2.675, 2.773, 2.375, 2.582 | 2.638 +/- 0.168 |
+| Ridge | 2.347, 2.348, 2.382, 2.105, 2.207 | **2.278 +/- 0.118** |
+| RandomForest | 2.408, 2.479, 2.445, 2.080, 2.251 | 2.333 +/- 0.166 |
+
+Decision rule: the model with the lower mean backtest RMSE goes to production, and a tie
+goes to the simpler model. Ridge wins on four of the five years and varies less from year
+to year, so production runs Ridge. A side benefit is size: the forest pickle was about
+96 MB, the Ridge one is a few KB, so the image builds faster and the model is easy to
+explain (it is a weighted sum of recent temperatures plus a seasonal term).
+
+### Where the model is worst
+
+![RMSE by month](reports/rmse_by_month.png)
+
+Melbourne is in the southern hemisphere, so winter is June to August. Errors are lowest
+in winter (Ridge RMSE 1.98) and highest in spring, September to November (2.70), with
+summer in between (2.15). Of the 61 days the backtest missed by more than 5 deg C, 31 fall
+in spring and 42 of the 61 are nights that turned out warmer than predicted, which looks
+like the jumpy spring pattern of warm northerlies followed by cool changes. A day-to-day
+change feature such as `lag_1 - lag_2` would not help Ridge, because it is already a linear
+combination of two inputs; a model that can use it non-linearly, or an outside signal like
+cloud cover or wind direction, is the more likely fix. Per-month numbers are in
+[reports/error_by_month.csv](reports/error_by_month.csv) and the residuals over time in
+[reports/residuals.png](reports/residuals.png).
 
 ## Monitoring
 
-- `GET /metrics` exposes Prometheus metrics: `predictions_total` and a
-  `prediction_latency_seconds` histogram.
-- `python -m src.monitoring.drift_report` compares the most recent 30% of the feature
-  table against the first 70% with Evidently and writes `reports/drift.html`.
+What exists today, stated plainly:
+
+- `GET /metrics` exposes Prometheus metrics (request count and latency):
+  `predictions_total` and a `prediction_latency_seconds` histogram. Nothing scrapes it yet;
+  there is no Prometheus server or dashboard.
+- `make drift` runs an Evidently drift report comparing two historical windows of the
+  feature table (the first 70% against the last 30%) and writes `reports/drift.html`. It
+  runs by hand and does not look at live requests.
+- `GET /health` returns 503 when no model is loaded and includes the sha256 of the model
+  file that is being served.
 - Every prediction request is logged with its date and result.
 
 ## Project structure
@@ -127,11 +176,11 @@ src/
   config.py          config loader, PROJECT_ROOT
   logger.py          shared structured logger
   data/              ingest.py (download), validate.py (fail-fast checks)
-  features/          lags, rolling means, calendar features
+  features/          lags, rolling means, calendar features; serving.py reuses them for /predict
   models/            split.py, evaluate.py, train.py
   api/               schemas.py, main.py (/health /predict /metrics)
   monitoring/        drift_report.py
-tests/               unit tests for features, metrics, split; API tests with a stubbed model
+tests/               unit tests, a train/serve feature parity test, API tests with a stubbed model
 Dockerfile           multi-stage image; the model is trained during the build
 docker-compose.yml   API plus an MLflow server for local use
 dvc.yaml / dvc.lock  pipeline stages and pinned input/output hashes
