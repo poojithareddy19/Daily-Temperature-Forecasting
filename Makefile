@@ -1,4 +1,4 @@
-.PHONY: help install lint format test train pipeline run docker drift smoke
+.PHONY: help install lint format test train pipeline run docker drift smoke monitor traffic
 
 help:  ## list targets
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | sed 's/:.*## /  -  /'
@@ -36,3 +36,9 @@ drift:  ## write reports/drift.html with Evidently
 
 smoke:  ## smoke-test a deployment: make smoke URL=https://...
 	python scripts/smoke_test.py $(URL)
+
+monitor:  ## API + Prometheus (:9090) + Grafana (:3000) + MLflow via docker compose
+	docker compose up -d --build
+
+traffic:  ## send 200 prediction requests to the local API
+	python scripts/send_requests.py http://localhost:8000 200
