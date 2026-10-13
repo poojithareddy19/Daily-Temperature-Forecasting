@@ -213,8 +213,12 @@ Makefile             command shortcuts
 
 - Merging to `main` triggers CD, which builds the image and pushes it to
   `ghcr.io/poojithareddy19/daily-temperature-forecasting` with `latest` and `sha-<commit>` tags.
-- Render watches `main` too and rebuilds the Dockerfile on every merge, then swaps
-  traffic only after `/health` passes.
+- CD then triggers a Render deploy through a deploy hook, waits until `/health` reports
+  the merged commit as `git_sha`, and runs the smoke test against the live service. Render
+  rebuilds the Dockerfile and only swaps traffic once `/health` passes. The hook is there
+  because Render's own auto-deploy missed several merges; a deploy that never goes live
+  now fails CD after 25 minutes instead of going unnoticed. The hook URL is stored in the
+  `RENDER_DEPLOY_HOOK_URL` repository secret.
 - After a deploy, verify it from the outside. Pass the commit you expect to be live and
   the test fails if an older build is still serving:
 

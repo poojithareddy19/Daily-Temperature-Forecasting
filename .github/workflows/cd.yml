@@ -42,3 +42,48 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GIT_SHA=${{ github.sha }}
+
+  # Render's own auto-deploy has missed several merges, so CD triggers the deploy itself
+  # and then checks that the new commit is really the one serving traffic.
+  deploy:
+    runs-on: ubuntu-latest
+    # A newer merge supersedes this one; its job verifies the newer commit instead.
+    concurrency:
+      group: render-deploy
+      cancel-in-progress: true
+    env:
+      SERVICE_URL: https://temperature-forecast-api-mejw.onrender.com
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger Render deploy
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_URL secret is not set; relying on Render auto-deploy"
+          else
+            curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+            echo "Deploy triggered"
+          fi
+
+      - name: Wait until /health reports this commit
+        run: |
+          deadline=$((SECONDS + 1500))  # free-tier builds take several minutes
+          until curl -fsS --max-time 90 "$SERVICE_URL/health" | grep -q "\"git_sha\":\"$GITHUB_SHA\""; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::$GITHUB_SHA was not live after 25 minutes"
+              curl -sS --max-time 90 "$SERVICE_URL/health" || true
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "$GITHUB_SHA is live"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Smoke test the live service
+        run: |
+          pip install requests==2.32.3
+          python scripts/smoke_test.py "$SERVICE_URL" "$GITHUB_SHA"
