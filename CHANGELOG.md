@@ -19,6 +19,10 @@ All notable changes to this project are documented here. The format follows
 - `/predict` logs each request's features to `logs/requests.jsonl`; the drift report compares
   them with the training features (falls back to the test period below 100 requests).
 - Weekly drift report workflow that uploads `drift.html` as an artifact.
+- `ingest` DVC stage: downloads the raw CSV and checks it against `data.raw_sha256` in
+  `configs/config.yaml` before writing, so a fresh clone rebuilds with a single `dvc repro`.
+- Tests for data validation, the ingest checksum and the `/predict` input rules.
+- `.gitattributes` that checks text files out with LF, so DVC hashes match on every OS.
 
 ### Changed
 
@@ -29,6 +33,24 @@ All notable changes to this project are documented here. The format follows
 - `/health` returns 503 when no model is loaded.
 - Startup moved from the deprecated `on_event` hook to a lifespan handler.
 - README describes the metrics endpoint and drift report as what they are.
+- The raw CSV is a DVC stage output instead of a `.dvc`-tracked file (there was no remote
+  to pull it from), and is written with LF line endings.
+- `/predict` takes `date` as a strict `YYYY-MM-DD` string and `recent_temps` as 30 to 366
+  finite values within -50..60 deg C; the response is unchanged.
+- The `api` service in docker compose no longer sets `MLFLOW_TRACKING_URI` or waits for
+  MLflow, which it never used; the MLflow service remains as a UI for `./mlruns`.
+- Pipeline outputs regenerated with Python 3.11, the CI and Docker interpreter: metrics
+  are unchanged except `mae`, which moves in the 16th decimal, and the model hash.
+
+### Fixed
+
+- `src/data/validate.py` now runs in the `prepare` stage and raises `DataValidationError`
+  instead of using `assert` (stripped by `python -O`); malformed readings fail the build
+  instead of being dropped silently.
+- `/predict` no longer returns a forecast for physically impossible input such as thirty
+  readings of 999 deg C, and a NaN or infinite reading returns 422 instead of a 500.
+- `matplotlib` is pinned in `requirements.txt` (the error analysis stage imports it; it was
+  only installed through MLflow).
 
 ## [1.0.0] - 2026-09-25
 
