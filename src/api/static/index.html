@@ -13,13 +13,12 @@
   legend { padding: 0 .4rem; font-weight: 600; }
   label { display: block; margin: .5rem 0 .2rem; font-weight: 600; }
   input, button { font: inherit; }
-  input[type=text], input[type=date] {
+  input[type=text] {
     width: 100%; box-sizing: border-box; padding: .5rem; border: 1px solid #8886;
     border-radius: 6px; background: transparent; color: inherit;
   }
   .row { display: flex; gap: .5rem; align-items: flex-end; }
   .row > div { flex: 1; }
-  .row > div.date { flex: 0 0 11rem; }
   button { padding: .55rem 1.1rem; border-radius: 6px; border: 1px solid #8886; background: #4a6cf7; color: #fff; cursor: pointer; }
   button:disabled { opacity: .5; cursor: wait; }
   #result { font-size: 2.2rem; font-weight: 700; margin: .25rem 0; }
@@ -40,10 +39,6 @@ forecasts for other places are a demonstration of the service, not a weather ser
     <div>
       <label for="place">Place name</label>
       <input id="place" type="text" placeholder="Melbourne" value="Melbourne" autocomplete="off">
-    </div>
-    <div class="date">
-      <label for="date">Forecast date</label>
-      <input id="date" type="date">
     </div>
     <button id="predict" type="button">Predict</button>
   </div>
@@ -66,8 +61,13 @@ forecasts for other places are a demonstration of the service, not a weather ser
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const tomorrow = new Date(Date.now() + 864e5);
-  $("date").value = tomorrow.toISOString().slice(0, 10);
+
+  // The model forecasts the day after its newest reading, so the date comes from the history.
+  function nextDay(iso) {
+    const d = new Date(iso + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
 
   async function recentMinimums(name) {
     $("status").textContent = "Looking up " + name + "...";
@@ -107,7 +107,7 @@ forecasts for other places are a demonstration of the service, not a weather ser
       const r = await fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: $("date").value, recent_temps: recent.temps }),
+        body: JSON.stringify({ date: nextDay(recent.newestDay), recent_temps: recent.temps }),
       });
       const body = await r.json();
       if (!r.ok) {
@@ -116,7 +116,8 @@ forecasts for other places are a demonstration of the service, not a weather ser
       $("status").textContent = recent.where + ". Newest reading " + recent.newestDay + ": "
         + recent.temps[0] + " °C.";
       $("result").textContent = body.prediction.toFixed(1) + " °C";
-      $("detail").textContent = "Predicted minimum for " + body.date + ".";
+      $("detail").textContent = "Predicted minimum for " + body.date
+        + ", the day after the newest reading.";
       $("out").hidden = false;
     } catch (e) {
       $("status").textContent = "";
