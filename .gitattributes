@@ -1,0 +1,4 @@
+# LF everywhere, so DVC hashes the same bytes on Windows, macOS and Linux.
+* text=auto eol=lf
+*.png binary
+*.pkl binary
