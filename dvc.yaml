@@ -3,6 +3,7 @@ stages:
     cmd: python -m src.features.build_features
     deps:
       - src/features/build_features.py
+      - src/data/validate.py
       - data/raw/daily-min-temperatures.csv
       - params.yaml
     outs:

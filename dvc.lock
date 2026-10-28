@@ -11,10 +11,14 @@ stages:
       hash: md5
       md5: 49f745470615749f3af54b6ede21f00b
       size: 197
+    - path: src/data/validate.py
+      hash: md5
+      md5: 41b4730a4906ea750115e302785d364f
+      size: 1390
     - path: src/features/build_features.py
       hash: md5
-      md5: e4891c8cfdcef3a76518a3471fe7800e
-      size: 1835
+      md5: 9b9ed6a5bceafa6cce6dc92866a9bb8e
+      size: 1977
     outs:
     - path: data/processed/features.csv
       hash: md5
