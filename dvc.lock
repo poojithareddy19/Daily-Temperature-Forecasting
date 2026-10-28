@@ -5,84 +5,84 @@ stages:
     deps:
     - path: data/raw/daily-min-temperatures.csv
       hash: md5
-      md5: e35310138d13ed2b8117e3a4faa770c5
-      size: 60619
+      md5: b06e8962cc9b81197f53b9e3d2ff3d32
+      size: 56968
     - path: params.yaml
       hash: md5
-      md5: c66ce1a01c9bda17eef14374537f6281
-      size: 207
+      md5: 49f745470615749f3af54b6ede21f00b
+      size: 197
     - path: src/features/build_features.py
       hash: md5
-      md5: 6a9becfdf62c611b098b94dab87d204d
-      size: 1889
+      md5: e4891c8cfdcef3a76518a3471fe7800e
+      size: 1835
     outs:
     - path: data/processed/features.csv
       hash: md5
-      md5: b45dfa0c8a34f3bef4fa9ca9aa8941f3
-      size: 418396
+      md5: 5d3247f33021c679f65cb42234042659
+      size: 414765
   train:
     cmd: python -m src.models.train
     deps:
     - path: data/processed/features.csv
       hash: md5
-      md5: b45dfa0c8a34f3bef4fa9ca9aa8941f3
-      size: 418396
+      md5: 5d3247f33021c679f65cb42234042659
+      size: 414765
     - path: params.yaml
       hash: md5
-      md5: c66ce1a01c9bda17eef14374537f6281
-      size: 207
+      md5: 49f745470615749f3af54b6ede21f00b
+      size: 197
     - path: src/models/train.py
       hash: md5
-      md5: 44bc42e40f0cf7d413b2753ab2278409
-      size: 3583
+      md5: 3c8b09f341090d28aadfe934bcacb6ee
+      size: 3462
     outs:
     - path: metrics.json
       hash: md5
-      md5: 071c4005aa4c98c279a9a7ca625d3c21
-      size: 565
+      md5: 855c094f7c25b67ebeedb01a3612e4c1
+      size: 542
     - path: models/model.pkl
       hash: md5
-      md5: d8d9ec086ddda3e5d366da0829d516f9
+      md5: 2b0aa02bf5d3aa0a9f9dbc24d518cde8
       size: 1162
   backtest:
     cmd: python scripts/backtest.py
     deps:
     - path: data/processed/features.csv
       hash: md5
-      md5: b45dfa0c8a34f3bef4fa9ca9aa8941f3
-      size: 418396
+      md5: 5d3247f33021c679f65cb42234042659
+      size: 414765
     - path: params.yaml
       hash: md5
-      md5: c66ce1a01c9bda17eef14374537f6281
-      size: 207
+      md5: 49f745470615749f3af54b6ede21f00b
+      size: 197
     - path: scripts/backtest.py
       hash: md5
       md5: aeedbcad67bd9136a51b527c4f9ff0e5
       size: 2806
     - path: src/models/train.py
       hash: md5
-      md5: 44bc42e40f0cf7d413b2753ab2278409
-      size: 3583
+      md5: 3c8b09f341090d28aadfe934bcacb6ee
+      size: 3462
     outs:
     - path: reports/backtest.csv
       hash: md5
-      md5: 6e8547e50e78f7c3058be06412ccfa27
-      size: 548
+      md5: 19ed1d5a00563a94a5d808978f54d20a
+      size: 531
     - path: reports/backtest_predictions.csv
       hash: md5
-      md5: f3502d60c68ca38c49d55bf1e5b0f926
-      size: 225072
+      md5: e30da12c73efc96bb47bfc96eadb4f23
+      size: 219649
     - path: reports/backtest_summary.json
       hash: md5
-      md5: ee3c23cd0768df115a8c7b099e630474
-      size: 301
+      md5: 59be9410105b0c86b303e41ff35e2fc1
+      size: 287
   error_analysis:
     cmd: python scripts/error_analysis.py
     deps:
     - path: reports/backtest_predictions.csv
       hash: md5
-      md5: f3502d60c68ca38c49d55bf1e5b0f926
-      size: 225072
+      md5: e30da12c73efc96bb47bfc96eadb4f23
+      size: 219649
     - path: scripts/error_analysis.py
       hash: md5
       md5: c2743d29a0299f3bd539b31202092a78
@@ -90,13 +90,13 @@ stages:
     outs:
     - path: reports/error_by_month.csv
       hash: md5
-      md5: 71f2e339a6fd517707d1fa8512807ad9
-      size: 2074
+      md5: c2ad2afb558a858c138e7cc2704c9807
+      size: 2028
     - path: reports/residuals.png
       hash: md5
-      md5: 1edf4034137a4ec20e6597e50b09ad42
-      size: 134390
+      md5: 1af17a18981cfd62617d624589942c66
+      size: 143293
     - path: reports/rmse_by_month.png
       hash: md5
-      md5: ddf65bf0dda80fc7226bfc9b193f474e
-      size: 24348
+      md5: 9577c6496a1c126e652cf56b45b3768a
+      size: 27471
