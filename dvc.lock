@@ -104,3 +104,21 @@ stages:
       hash: md5
       md5: 9577c6496a1c126e652cf56b45b3768a
       size: 27471
+  ingest:
+    cmd: python -m src.data.ingest
+    deps:
+    - path: src/data/ingest.py
+      hash: md5
+      md5: 9f3c52e1419fb8261a2bc32ca81cd3a3
+      size: 1457
+    params:
+      configs/config.yaml:
+        data.raw_sha256: 
+          8b9de63ed6789492bf497625e7f9beb96a63d367b4b0a21754006f749fa5e5da
+        data.raw_url: 
+          https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-min-temperatures.csv
+    outs:
+    - path: data/raw/daily-min-temperatures.csv
+      hash: md5
+      md5: b06e8962cc9b81197f53b9e3d2ff3d32
+      size: 56968

@@ -1,5 +1,7 @@
 data:
   raw_url: "https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-min-temperatures.csv"
+  # sha256 of the downloaded bytes; ingest refuses any other file.
+  raw_sha256: "8b9de63ed6789492bf497625e7f9beb96a63d367b4b0a21754006f749fa5e5da"
   raw_path: "data/raw/daily-min-temperatures.csv"
   processed_path: "data/processed/features.csv"
 paths:
