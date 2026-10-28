@@ -48,3 +48,12 @@ def test_baselines_one_prediction_per_test_row():
     for name, p in preds.items():
         assert len(p) == len(test), name
         assert p.isna().sum() == 0, name
+
+
+def test_build_model_passes_n_jobs_to_the_forest():
+    from src.models.train import build_model
+
+    params = {"model": "random_forest", "n_estimators": 5, "max_depth": 3, "random_state": 0}
+
+    assert build_model(params).n_jobs == -1
+    assert build_model(params, n_jobs=1).n_jobs == 1

@@ -26,7 +26,8 @@ def load_params() -> dict:
         return yaml.safe_load(f)
 
 
-def build_model(train_params: dict):
+def build_model(train_params: dict, n_jobs: int = -1):
+    """n_jobs=1 makes the forest bit-for-bit repeatable; parallel trees sum in varying order."""
     name = train_params["model"]
     if name == "ridge":
         return Ridge(alpha=train_params["ridge_alpha"])
@@ -35,7 +36,7 @@ def build_model(train_params: dict):
             n_estimators=train_params["n_estimators"],
             max_depth=train_params["max_depth"],
             random_state=train_params["random_state"],
-            n_jobs=-1,
+            n_jobs=n_jobs,
         )
     raise ValueError(f"Unknown model: {name}")
 
