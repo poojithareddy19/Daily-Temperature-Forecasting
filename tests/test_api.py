@@ -131,6 +131,77 @@ def test_predict_appends_features_to_request_log(monkeypatch, request_log):
     assert "ts" in records[0]
 
 
+VALID_TEMPS = "[" + ", ".join(["10.0"] * 30) + "]"
+
+
+def raw_body(date='"1991-01-01"', temps=VALID_TEMPS):
+    """Request body as raw JSON text, so NaN and Infinity reach the server unchanged."""
+    return f'{{"date": {date}, "recent_temps": {temps}}}'
+
+
+def temps_with(value, n=30):
+    return "[" + ", ".join([value] + ["10.0"] * (n - 1)) + "]"
+
+
+@pytest.mark.parametrize(
+    "body, status",
+    [
+        (raw_body(), 200),
+        (raw_body(temps=temps_with("10.0", n=29)), 422),
+        (raw_body(temps=temps_with("10.0", n=367)), 422),
+        (raw_body(temps=temps_with("61")), 422),
+        (raw_body(temps=temps_with("-51")), 422),
+        (raw_body(temps=temps_with("NaN")), 422),
+        (raw_body(temps=temps_with("Infinity")), 422),
+        (raw_body(date='"01/01/1991"'), 422),
+        (raw_body(date='"1991-01-01T00:00:00"'), 422),
+        (raw_body(date='"1991-02-30"'), 422),
+        (raw_body(date="662688000"), 422),
+    ],
+    ids=[
+        "valid",
+        "29-values",
+        "367-values",
+        "temp-61",
+        "temp-minus-51",
+        "nan",
+        "infinity",
+        "us-date",
+        "datetime-string",
+        "impossible-date",
+        "integer-date",
+    ],
+)
+def test_predict_input_validation(monkeypatch, body, status):
+    class Stub:
+        def predict(self, X):
+            return [21.5]
+
+    monkeypatch.setattr(main, "_bundle", {"model": Stub(), "features": FEATURES})
+    client = TestClient(main.app)
+
+    r = client.post("/predict", content=body, headers={"Content-Type": "application/json"})
+
+    assert r.status_code == status, r.text
+    if status == 422:
+        assert isinstance(r.json()["detail"], list)
+
+
+def test_predict_response_contract_unchanged(monkeypatch):
+    class Stub:
+        def predict(self, X):
+            return [21.4567]
+
+    monkeypatch.setattr(main, "_bundle", {"model": Stub(), "features": FEATURES})
+    client = TestClient(main.app)
+    body = {"date": "1991-01-01", "recent_temps": [10.0] * 366}
+
+    r = client.post("/predict", json=body)
+
+    assert r.status_code == 200
+    assert r.json() == {"date": "1991-01-01", "prediction": 21.46}
+
+
 def test_health_reports_git_sha(monkeypatch):
     monkeypatch.setattr(main, "_bundle", {"model": object(), "features": FEATURES})
     monkeypatch.delenv("GIT_SHA", raising=False)

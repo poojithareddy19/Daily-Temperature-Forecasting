@@ -3,15 +3,12 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
     volumes:
       # Request log on the host, so `make drift` can compare it with the training data.
       - ./logs:/app/logs
-    depends_on:
-      - mlflow
 
   mlflow:
+    # UI for the runs that training on the host writes to ./mlruns; the API never calls it.
     # Pinned to the same version as the mlflow client in requirements.txt.
     image: ghcr.io/mlflow/mlflow:v2.16.2
     ports:

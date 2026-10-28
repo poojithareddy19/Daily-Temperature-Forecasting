@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -7,8 +8,10 @@ from pathlib import Path
 
 import joblib
 import yaml
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 from src.api.schemas import PredictionRequest, PredictionResponse
@@ -67,6 +70,25 @@ PREDICTIONS = Counter("predictions_total", "Total prediction requests")
 PRED_LATENCY = Histogram("prediction_latency_seconds", "Prediction latency in seconds")
 
 
+def _json_safe(value):
+    """Replace NaN and infinity, which JSON cannot encode, with their string form."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, list | tuple):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    # Same body as FastAPI's default 422, which would itself fail (500) echoing a NaN input.
+    return JSONResponse(
+        status_code=422, content={"detail": jsonable_encoder(_json_safe(exc.errors()))}
+    )
+
+
 @app.get("/", include_in_schema=False)
 def root():
     """Serve the single-page UI."""
@@ -87,16 +109,8 @@ def health(response: Response):
 
 
 def _serving_features(req: PredictionRequest) -> dict:
-    try:
-        d = datetime.strptime(req.date, "%Y-%m-%d")
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="date must be YYYY-MM-DD",
-        ) from exc
-
     return features_from_history(
-        d, req.recent_temps, FEATURE_PARAMS["lags"], FEATURE_PARAMS["roll_windows"]
+        req.date, req.recent_temps, FEATURE_PARAMS["lags"], FEATURE_PARAMS["roll_windows"]
     )
 
 
@@ -133,6 +147,6 @@ def predict(req: PredictionRequest):
     )
 
     return PredictionResponse(
-        date=req.date,
+        date=req.date.isoformat(),
         prediction=round(value, 2),
     )

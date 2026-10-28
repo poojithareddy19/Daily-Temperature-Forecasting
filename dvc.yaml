@@ -1,8 +1,21 @@
 stages:
+  ingest:
+    cmd: python -m src.data.ingest
+    deps:
+      - src/data/ingest.py
+    params:
+      # Only these keys, so editing other settings (log level, paths) does not re-download.
+      - configs/config.yaml:
+          - data.raw_url
+          - data.raw_sha256
+    outs:
+      - data/raw/daily-min-temperatures.csv
+
   prepare:
     cmd: python -m src.features.build_features
     deps:
       - src/features/build_features.py
+      - src/data/validate.py
       - data/raw/daily-min-temperatures.csv
       - params.yaml
     outs:

@@ -3,6 +3,7 @@ import pandas as pd
 import yaml
 
 from src.config import PROJECT_ROOT, load_config
+from src.data.validate import validate
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,6 +43,8 @@ def main() -> None:
     raw.columns = ["date", "temp"]
     raw["date"] = pd.to_datetime(raw["date"])
     raw["temp"] = pd.to_numeric(raw["temp"], errors="coerce")
+    # Before dropna, so a malformed reading fails the build instead of disappearing.
+    validate(raw)
     raw = raw.dropna().reset_index(drop=True)
     feats = build_features(raw, params["features"]["lags"], params["features"]["roll_windows"])
     out = PROJECT_ROOT / cfg["data"]["processed_path"]

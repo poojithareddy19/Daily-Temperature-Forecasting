@@ -6,6 +6,7 @@ joblib==1.4.2
 dvc==3.55.2
 pathspec==0.12.1  # dvc 3.55 breaks on pathspec 1.x (_DIR_MARK import)
 mlflow==2.16.2
+matplotlib==3.11.2  # error_analysis stage plots; was only a transitive mlflow dependency
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2

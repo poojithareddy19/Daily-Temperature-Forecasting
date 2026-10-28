@@ -1,6 +1,6 @@
 {
   "rmse": 2.151772567402268,
-  "mae": 1.7085459497588378,
+  "mae": 1.7085459497588376,
   "baselines": {
     "persistence": {
       "rmse": 2.4784234652149695,
@@ -19,5 +19,5 @@
       "mae": 2.964226519337017
     }
   },
-  "model_sha256": "4db61e4d5bbd4b70e9c441e84e31ee59da8cd45c78145ab75362cd0bdada1680"
+  "model_sha256": "dd4ea57ac6a672e79f3a92df8e944720557e43f6ca76b3484f8b61bf813c92da"
 }

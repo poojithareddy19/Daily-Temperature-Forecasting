@@ -26,14 +26,25 @@ curl -X POST https://temperature-forecast-api-mejw.onrender.com/predict \
 
 `recent_temps` holds the last 30 daily minimums, newest first (index 0 is yesterday).
 
+Request constraints (anything else returns 422, and `/docs` lists the same rules):
+
+| Field | Rule |
+|---|---|
+| `date` | a `YYYY-MM-DD` string; numbers, `01/01/1991` and datetime strings are rejected |
+| `recent_temps` | 30 to 366 finite numbers (no NaN or infinity), each between -50 and 60 deg C; only the first 30 are used |
+
+The bounds are the same ones the data validation applies to the training data
+(`TEMP_MIN` and `TEMP_MAX` in `src/data/validate.py`). The response is unchanged:
+`{"date": "YYYY-MM-DD", "prediction": <float rounded to 2 decimals>}`.
+
 ## Architecture
 
 ```
 public CSV (GitHub raw URL)
-        |  python -m src.data.ingest
+        |  dvc repro: ingest (download, sha256 check against configs/config.yaml)
         v
-data/raw  (tracked by DVC, not Git)
-        |  dvc repro: prepare -> train, backtest -> error_analysis
+data/raw  (DVC stage output, not in Git)
+        |  dvc repro: prepare (validate, build features) -> train, backtest -> error_analysis
         v
 data/processed/features.csv  ->  Ridge        ->  models/model.pkl + metrics.json
         |                         (params.yaml, every run logged to MLflow)
@@ -94,7 +105,33 @@ both stages, editing it and running `dvc repro` retrains and rewrites `dvc.lock`
 commit can be rebuilt exactly. Run DVC with the virtual environment activated: its stage
 commands call `python`.
 
-Runs are logged to a local MLflow file store; open it with `mlflow ui` from the repo root.
+**Data.** The first stage, `ingest`, downloads the public CSV and refuses it unless its
+sha256 matches `data.raw_sha256` in [configs/config.yaml](configs/config.yaml), so a fresh
+clone needs no manual step: `dvc repro` downloads, validates, builds features and trains.
+If the upstream file ever changes, `ingest` fails with the new hash instead of silently
+training on different data; check the file before updating the pinned value. Only
+`data.raw_url` and `data.raw_sha256` are stage parameters, so editing other settings in
+that file does not trigger a new download.
+
+`prepare` runs `src/data/validate.py` before building features and fails with
+`DataValidationError` on a missing column, a missing or non-numeric temperature, a value
+outside -50..60 deg C, or unsorted dates. It also runs on its own with
+`python -m src.data.validate`.
+
+There is no DVC remote yet. To add one later (S3 shown; GCS, Azure, SSH and others work
+the same way), keep credentials out of Git by putting them in `.dvc/config.local`:
+
+```bash
+dvc remote add -d storage s3://<bucket>/<path>
+dvc remote modify --local storage access_key_id <key>
+dvc remote modify --local storage secret_access_key <secret>
+dvc push
+```
+
+After that, `dvc pull` restores the cached outputs instead of recomputing them.
+
+Runs are logged to a local MLflow file store in `./mlruns`; open it with `mlflow ui` from
+the repo root, or use the MLflow service that `make monitor` starts (see Monitoring).
 
 ## Results
 
@@ -153,14 +190,28 @@ cloud cover or wind direction, is the more likely fix. Per-month numbers are in
 
 ## Monitoring
 
-Locally, `make monitor` (docker compose) starts the API with Prometheus and Grafana next
-to it:
+Locally, `make monitor` (docker compose) starts the API with Prometheus, Grafana and an
+MLflow UI next to it:
 
 | Service | URL | What it does |
 |---|---|---|
 | API | http://localhost:8000 | `/metrics` exposes `predictions_total` and a `prediction_latency_seconds` histogram |
 | Prometheus | http://localhost:9090 | scrapes the API every 15 seconds ([config](monitoring/prometheus.yml)) |
 | Grafana | http://localhost:3000 | "Temperature Forecast API" dashboard: request rate and p95 latency, provisioned from [monitoring/grafana](monitoring/grafana) |
+| MLflow | http://localhost:5000 | the training runs in the host's `./mlruns` (from `make train` or `dvc repro`) |
+
+**MLflow.** The API never talks to MLflow: the model in the image is trained during
+`docker build`. The MLflow service is only a UI over the runs that training on the host
+writes to `./mlruns`. To log a host run through that server instead of the file store:
+
+```bash
+MLFLOW_TRACKING_URI=http://localhost:5000 make train
+```
+
+Run a plain `make train` once first, so the experiment is created in `./mlruns`. If the
+server creates the experiment, it stores model artifacts inside the MLflow container
+(lost when it is removed) and later plain `make train` or `dvc repro` runs fail with
+`'file' is invalid for use with the proxy mlflow-artifact scheme`.
 
 `make traffic` sends 200 requests built from real 30-day windows, so the panels have
 something to show:
@@ -187,23 +238,24 @@ running build came from, and `model_sha256`, the hash of the model file being se
 
 ```
 .github/workflows/   ci.yml (lint + test), cd.yml (build image, push to GHCR)
-configs/config.yaml  paths, data URL, log level
-data/                raw and processed data (DVC-tracked, git-ignored)
+configs/config.yaml  paths, data URL and its pinned sha256, log level
+data/                raw and processed data (DVC stage outputs, git-ignored)
 models/              trained model.pkl (git-ignored, rebuilt by the pipeline)
 scripts/             smoke_test.py: hits a deployed service end to end
 src/
   config.py          config loader, PROJECT_ROOT
   logger.py          shared structured logger
-  data/              ingest.py (download), validate.py (fail-fast checks)
+  data/              ingest.py (download + checksum), validate.py (fail-fast checks in prepare)
   features/          lags, rolling means, calendar features; serving.py reuses them for /predict
   models/            split.py, evaluate.py, train.py
   api/               schemas.py, main.py (/health /predict /metrics)
   monitoring/        drift_report.py (training features vs logged requests)
-tests/               unit tests, a train/serve feature parity test, API tests with a stubbed model
+tests/               unit tests, data validation and ingest checksum tests, a train/serve feature
+                     parity test, API tests (including the request validation table) with a stubbed model
 Dockerfile           multi-stage image; the model is trained during the build
 docker-compose.yml   API, MLflow, Prometheus and Grafana for local use
 monitoring/          Prometheus scrape config, Grafana data source and dashboard
-dvc.yaml / dvc.lock  pipeline stages and pinned input/output hashes
+dvc.yaml / dvc.lock  stages ingest -> prepare -> train, backtest -> error_analysis, with pinned hashes
 params.yaml          hyperparameters and feature settings
 render.yaml          Render blueprint (infrastructure as code)
 Makefile             command shortcuts
