@@ -208,10 +208,11 @@ writes to `./mlruns`. To log a host run through that server instead of the file 
 MLFLOW_TRACKING_URI=http://localhost:5000 make train
 ```
 
-Run a plain `make train` once first, so the experiment is created in `./mlruns`. If the
-server creates the experiment, it stores model artifacts inside the MLflow container
-(lost when it is removed) and later plain `make train` or `dvc repro` runs fail with
-`'file' is invalid for use with the proxy mlflow-artifact scheme`.
+Both ways log to the same experiment, in either order: training creates it with model
+artifacts in `./mlartifacts` (git-ignored) rather than inside the MLflow container. An
+experiment created by an older version of `train.py` through the server keeps its
+in-container artifact store, and plain runs fail against it with `'file' is invalid for use
+with the proxy mlflow-artifact scheme`; delete `./mlruns` to start over.
 
 `make traffic` sends 200 requests built from real 30-day windows, so the panels have
 something to show:
