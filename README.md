@@ -151,6 +151,12 @@ means, and the day of year encoded as sin/cos so the calendar wraps around at Ne
 The forest also sees the raw day of year; Ridge does not, since it is not linear in
 temperature. Switch between them with `train.model` in `params.yaml`.
 
+Lags and rolling means are counted in rows, not calendar days. The dataset has 3,650 rows
+over 3,652 days: 31 December is missing in the leap years 1984 and 1988. So on
+1 January 1985 and 1989, `lag_1` is 30 December rather than the day before, and the other
+lags and windows near those dates reach one day further back. The gaps are left as they
+are; filling them would change the features and every metric.
+
 Each baseline only uses data that was available before the day being forecast. Persistence
 is the hardest one to beat because daily temperature is strongly autocorrelated, so it is
 the bar that matters; climatology and same-day-last-year are much weaker for a next-day
@@ -208,10 +214,11 @@ writes to `./mlruns`. To log a host run through that server instead of the file 
 MLFLOW_TRACKING_URI=http://localhost:5000 make train
 ```
 
-Run a plain `make train` once first, so the experiment is created in `./mlruns`. If the
-server creates the experiment, it stores model artifacts inside the MLflow container
-(lost when it is removed) and later plain `make train` or `dvc repro` runs fail with
-`'file' is invalid for use with the proxy mlflow-artifact scheme`.
+Both ways log to the same experiment, in either order: training creates it with model
+artifacts in `./mlartifacts` (git-ignored) rather than inside the MLflow container. An
+experiment created by an older version of `train.py` through the server keeps its
+in-container artifact store, and plain runs fail against it with `'file' is invalid for use
+with the proxy mlflow-artifact scheme`; delete `./mlruns` to start over.
 
 `make traffic` sends 200 requests built from real 30-day windows, so the panels have
 something to show:

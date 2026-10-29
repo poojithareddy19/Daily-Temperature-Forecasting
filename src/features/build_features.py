@@ -49,7 +49,8 @@ def main() -> None:
     feats = build_features(raw, params["features"]["lags"], params["features"]["roll_windows"])
     out = PROJECT_ROOT / cfg["data"]["processed_path"]
     out.parent.mkdir(parents=True, exist_ok=True)
-    feats.to_csv(out, index=False)
+    # Fixed line ending, so the file (and its DVC hash) is the same on every OS.
+    feats.to_csv(out, index=False, lineterminator="\n")
     logger.info("Wrote %d rows, %d cols to %s", len(feats), feats.shape[1], out)
 
 

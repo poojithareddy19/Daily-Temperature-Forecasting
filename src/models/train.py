@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 TARGET = "temp"
 DROP_COLS = ["date", "temp"]
+EXPERIMENT = "temperature-forecast"
 
 
 def load_params() -> dict:
@@ -26,7 +27,8 @@ def load_params() -> dict:
         return yaml.safe_load(f)
 
 
-def build_model(train_params: dict):
+def build_model(train_params: dict, n_jobs: int = -1):
+    """n_jobs=1 makes the forest bit-for-bit repeatable; parallel trees sum in varying order."""
     name = train_params["model"]
     if name == "ridge":
         return Ridge(alpha=train_params["ridge_alpha"])
@@ -35,7 +37,7 @@ def build_model(train_params: dict):
             n_estimators=train_params["n_estimators"],
             max_depth=train_params["max_depth"],
             random_state=train_params["random_state"],
-            n_jobs=-1,
+            n_jobs=n_jobs,
         )
     raise ValueError(f"Unknown model: {name}")
 
@@ -47,6 +49,17 @@ def feature_columns(columns, model_name: str) -> list:
         # doy_sin and doy_cos carry the season instead.
         features.remove("dayofyear")
     return features
+
+
+def set_experiment() -> None:
+    """Create the experiment with a local artifact folder if it does not exist yet.
+
+    Left to the compose MLflow server, the experiment would store artifacts inside that
+    container, and later file-store runs (plain make train, dvc repro) could not log to it.
+    """
+    if mlflow.get_experiment_by_name(EXPERIMENT) is None:
+        mlflow.create_experiment(EXPERIMENT, (PROJECT_ROOT / "mlartifacts").as_uri())
+    mlflow.set_experiment(EXPERIMENT)
 
 
 def main() -> dict:
@@ -65,7 +78,7 @@ def main() -> dict:
     features = feature_columns(df.columns, params["train"]["model"])
     model = build_model(params["train"])
 
-    mlflow.set_experiment("temperature-forecast")
+    set_experiment()
 
     with mlflow.start_run():
         mlflow.log_params(params["train"])

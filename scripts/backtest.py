@@ -34,7 +34,8 @@ def main() -> None:
         train, test = df[year < y], df[year == y]
         year_preds = {"persistence": test["lag_1"].to_numpy()}
         for name in MODELS:
-            model = build_model({**params["train"], "model": name})
+            # Single-threaded, so reports/backtest_predictions.csv is identical on every run.
+            model = build_model({**params["train"], "model": name}, n_jobs=1)
             features = feature_columns(df.columns, name)
             model.fit(train[features], train[TARGET])
             year_preds[name] = model.predict(test[features])

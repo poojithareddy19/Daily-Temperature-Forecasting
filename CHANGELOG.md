@@ -51,6 +51,14 @@ All notable changes to this project are documented here. The format follows
   readings of 999 deg C, and a NaN or infinite reading returns 422 instead of a 500.
 - `matplotlib` is pinned in `requirements.txt` (the error analysis stage imports it; it was
   only installed through MLflow).
+- The walk-forward backtest trains single-threaded, so its prediction files are identical
+  on every run and a fresh `dvc repro` no longer rewrites their hashes.
+- `features.csv` is written with LF line endings, so its hash matches on every OS.
+- Plain `make train` and runs logged through the compose MLflow server share one
+  experiment in either order; artifacts go to `./mlartifacts`.
+- The web UI forecasts the day after the newest fetched reading instead of a free date
+  picker that could disagree with the history.
+- README notes the two missing calendar days and their effect on the lag features.
 
 ## [1.0.0] - 2026-09-25
 

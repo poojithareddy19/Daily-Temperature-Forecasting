@@ -17,8 +17,8 @@ stages:
       size: 1390
     - path: src/features/build_features.py
       hash: md5
-      md5: 9b9ed6a5bceafa6cce6dc92866a9bb8e
-      size: 1977
+      md5: 338c75e3f94692d4b4b7fa395560c210
+      size: 2079
     outs:
     - path: data/processed/features.csv
       hash: md5
@@ -37,8 +37,8 @@ stages:
       size: 197
     - path: src/models/train.py
       hash: md5
-      md5: 3c8b09f341090d28aadfe934bcacb6ee
-      size: 3462
+      md5: 4d999f0f18bed0410f1c210bf3deef6f
+      size: 4075
     outs:
     - path: metrics.json
       hash: md5
@@ -61,12 +61,12 @@ stages:
       size: 197
     - path: scripts/backtest.py
       hash: md5
-      md5: aeedbcad67bd9136a51b527c4f9ff0e5
-      size: 2806
+      md5: 46801403d6cc775a316ac49f0b3eaf6a
+      size: 2910
     - path: src/models/train.py
       hash: md5
-      md5: 3c8b09f341090d28aadfe934bcacb6ee
-      size: 3462
+      md5: 4d999f0f18bed0410f1c210bf3deef6f
+      size: 4075
     outs:
     - path: reports/backtest.csv
       hash: md5
@@ -74,8 +74,8 @@ stages:
       size: 531
     - path: reports/backtest_predictions.csv
       hash: md5
-      md5: e30da12c73efc96bb47bfc96eadb4f23
-      size: 219649
+      md5: bdcd68b2d434c311e809abd5bbe9ae65
+      size: 219639
     - path: reports/backtest_summary.json
       hash: md5
       md5: 59be9410105b0c86b303e41ff35e2fc1
@@ -85,8 +85,8 @@ stages:
     deps:
     - path: reports/backtest_predictions.csv
       hash: md5
-      md5: e30da12c73efc96bb47bfc96eadb4f23
-      size: 219649
+      md5: bdcd68b2d434c311e809abd5bbe9ae65
+      size: 219639
     - path: scripts/error_analysis.py
       hash: md5
       md5: c2743d29a0299f3bd539b31202092a78
@@ -94,8 +94,8 @@ stages:
     outs:
     - path: reports/error_by_month.csv
       hash: md5
-      md5: c2ad2afb558a858c138e7cc2704c9807
-      size: 2028
+      md5: f103112593b5ef5e86213f22a42ecc82
+      size: 2031
     - path: reports/residuals.png
       hash: md5
       md5: 1af17a18981cfd62617d624589942c66
