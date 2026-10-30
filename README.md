@@ -56,7 +56,7 @@ FastAPI service  /health  /predict  /metrics      <- Docker image, model baked i
 GitHub Actions  CI (ruff, black, pytest)  ->  CD (build image, push to GHCR)
         |
         v
-Render  (render.yaml blueprint, auto-deploys main, health-checked rollout)
+Render  (render.yaml blueprint, runs the GHCR image, health-checked rollout)
 ```
 
 CI and CD are separate workflows on purpose: CI protects `main` (nothing merges without a
@@ -75,7 +75,7 @@ green check), CD ships whatever lands on `main`.
 | Packaging | Docker (multi-stage), docker-compose | Identical runtime on laptop, CI, and cloud |
 | CI/CD | GitHub Actions, GHCR | Native to the repo; images tagged `latest` and `sha-<commit>` |
 | Monitoring | Prometheus, Grafana, Evidently | Request rate and latency dashboards locally; drift on logged requests |
-| Hosting | Render | Docker deploys straight from GitHub, infrastructure declared in `render.yaml` |
+| Hosting | Render | Runs the image CI built, infrastructure declared in `render.yaml` |
 
 ## Quickstart
 
@@ -272,11 +272,12 @@ Makefile             command shortcuts
 
 - Merging to `main` triggers CD, which builds the image and pushes it to
   `ghcr.io/poojithareddy19/daily-temperature-forecasting` with `latest` and `sha-<commit>` tags.
-- CD then triggers a Render deploy through a deploy hook, waits until `/health` reports
-  the merged commit as `git_sha`, and runs the smoke test against the live service. Render
-  rebuilds the Dockerfile and only swaps traffic once `/health` passes. The hook is there
-  because Render's own auto-deploy missed several merges; a deploy that never goes live
-  now fails CD after 25 minutes instead of going unnoticed. The hook URL is stored in the
+- Once the image is pushed, CD triggers a Render deploy through a deploy hook, waits until
+  `/health` reports the merged commit as `git_sha`, and runs the smoke test against the
+  live service. Render runs that same GHCR image (`runtime: image` in `render.yaml`) rather
+  than rebuilding the Dockerfile, so the live `model_sha256` matches `metrics.json`; it only
+  swaps traffic once `/health` passes. A deploy that never goes live fails CD after 25
+  minutes instead of going unnoticed. The hook URL is stored in the
   `RENDER_DEPLOY_HOOK_URL` repository secret.
 - After a deploy, verify it from the outside. Pass the commit you expect to be live and
   the test fails if an older build is still serving:
@@ -285,8 +286,8 @@ Makefile             command shortcuts
 python scripts/smoke_test.py https://temperature-forecast-api-mejw.onrender.com $(git rev-parse --short HEAD)
 ```
 
-`git_sha` comes from the `GIT_SHA` build argument (set by CD for the GHCR image) or, on
-Render, from the `RENDER_GIT_COMMIT` variable Render provides.
+`git_sha` comes from the `GIT_SHA` build argument, which CD bakes into the GHCR image. The
+`RENDER_GIT_COMMIT` fallback only applies to a Render service that builds from Git.
 
 ## Development
 

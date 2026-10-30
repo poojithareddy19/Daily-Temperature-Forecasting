@@ -59,6 +59,9 @@ All notable changes to this project are documented here. The format follows
 - The web UI forecasts the day after the newest fetched reading instead of a free date
   picker that could disagree with the history.
 - README notes the two missing calendar days and their effect on the lag features.
+- Render runs the GHCR image that CD builds instead of rebuilding the Dockerfile, so the
+  live model is the same file as in CI (`model_sha256` in `metrics.json`). CD triggers the
+  Render deploy only after the image is pushed.
 
 ## [1.0.0] - 2026-09-25
 
