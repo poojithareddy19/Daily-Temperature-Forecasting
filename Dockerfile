@@ -13,8 +13,8 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
 
-# Commit the image was built from, reported by /health. CD passes it in; on Render the
-# API falls back to RENDER_GIT_COMMIT instead.
+# Commit the image was built from, reported by /health. CD passes it in; a Render service
+# that builds from Git instead falls back to RENDER_GIT_COMMIT.
 ARG GIT_SHA=unknown
 ENV GIT_SHA=$GIT_SHA
 

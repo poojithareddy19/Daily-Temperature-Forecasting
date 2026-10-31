@@ -3,9 +3,11 @@
 services:
   - type: web
     name: temperature-forecast-api
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    branch: main
+    # Runs the image CD pushes to GHCR instead of rebuilding the Dockerfile, so production
+    # serves the same model file as CI (model_sha256 in metrics.json). CD triggers each
+    # deploy through the deploy hook once the new :latest is pushed.
+    runtime: image
+    image:
+      url: ghcr.io/poojithareddy19/daily-temperature-forecasting:latest
     plan: free
     healthCheckPath: /health
-    autoDeploy: true

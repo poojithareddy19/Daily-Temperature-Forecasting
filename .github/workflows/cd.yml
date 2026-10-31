@@ -43,9 +43,11 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
 
-  # Render's own auto-deploy has missed several merges, so CD triggers the deploy itself
+  # An image-backed Render service has no Git auto-deploy, so CD triggers the deploy itself
   # and then checks that the new commit is really the one serving traffic.
   deploy:
+    # Render runs the GHCR image, so it must not redeploy before the new :latest is pushed.
+    needs: build-and-push
     runs-on: ubuntu-latest
     # A newer merge supersedes this one; its job verifies the newer commit instead.
     concurrency:
